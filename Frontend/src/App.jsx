@@ -1,11 +1,20 @@
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Home from "./pages/Home";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+
 function App() {
   return (
-    <div className="min-h-screen bg-gray-200 flex items-center justify-center">
-      <h1 className="text-4xl font-bold text-blue-600">
-        StudentTrack
-      </h1>
-    </div>
-  )
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;
