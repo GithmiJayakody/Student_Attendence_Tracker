@@ -121,7 +121,7 @@ function ForgotPassword() {
                 <div>
 
                   <label className="text-base font-semibold text-slate-800">
-                    University Email
+                    Email
                   </label>
 
                   <div className="relative mt-3">
@@ -133,15 +133,11 @@ function ForgotPassword() {
 
                     <input
                       type="email"
-                      placeholder="yourname@university.edu"
+                      placeholder="Enter your email"
                       className="w-full rounded-lg border border-slate-200 bg-white py-3.5 pl-12 pr-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                     />
 
                   </div>
-
-                  <p className="mt-2 text-sm text-slate-500">
-                    Use your official university email address.
-                  </p>
 
                 </div>
 

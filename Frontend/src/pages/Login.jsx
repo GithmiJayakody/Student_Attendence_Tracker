@@ -1,10 +1,55 @@
-import { Link } from "react-router-dom";
-import { Mail, Lock, Eye } from "lucide-react";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import api from "../services/api";
+import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 
 import loginImage from "../assets/loginImage.png";
 import logo from "../assets/Logo-GraduationCap.png";
 
 function Login() {
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const navigate = useNavigate();
+
+  const handleLogin = async (e) => {
+  e.preventDefault();
+
+  setError("");
+  setLoading(true);
+
+  try {
+    const response = await api.post("/auth/login", {
+      email,
+      password,
+    });
+
+    const { token, user } = response.data;
+
+    localStorage.setItem("token", token);
+    localStorage.setItem("user", JSON.stringify(user));
+
+    if (user.role === "admin") {
+      navigate("/admin");
+    } else if (user.role === "lecturer") {
+      navigate("/lecturer");
+    } else {
+      navigate("/student");
+    }
+
+  } catch (error) {
+    setError(
+      error.response?.data?.message || "Login failed. Please try again."
+    );
+  } finally {
+    setLoading(false);
+  }
+};
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-linear-to-br from-blue-100 via-white to-blue-50">
 
@@ -121,7 +166,7 @@ function Login() {
                 {/* Email */}
                 <div>
                   <label className="text-sm font-semibold text-slate-800">
-                    University Email
+                    Email
                   </label>
 
                   <div className="relative mt-2">
@@ -133,12 +178,15 @@ function Login() {
 
                     <input
                       type="email"
-                      placeholder="Enter your university email"
+                      placeholder="Enter your email"
                       className="w-full rounded-lg border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                     />
 
                   </div>
                 </div>
+
 
                 {/* Password */}
                 <div className="mt-5">
@@ -155,18 +203,41 @@ function Login() {
                     />
 
                     <input
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       placeholder="Enter your password"
                       className="w-full rounded-lg border border-slate-200 bg-white py-3 pl-11 pr-11 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                     />
 
-                    <Eye
-                      size={18}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer text-slate-400 transition hover:text-blue-600"
-                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-blue-600"
+                    >
+                      {showPassword ? (
+                        <EyeOff size={18} />
+                      ) : (
+                        <Eye size={18} />
+                      )}
+                    </button>
 
                   </div>
                 </div>
+
+                {/* Error Message */}
+                {error && (
+                  <div
+                    role="alert"
+                    className={`mt-4 rounded-lg border px-4 py-3 text-sm ${
+                      error.toLowerCase().includes("awaiting admin approval")
+                      ? "border-yellow-200 bg-yellow-50 text-yellow-700"
+                      : "border-red-200 bg-red-50 text-red-700"
+                  }`}
+                  >
+                  {error}
+                  </div>
+                )}
 
                 {/* Remember Me + Forgot Password */}
                 <div className="mt-4 flex items-center justify-between gap-3">
@@ -196,6 +267,7 @@ function Login() {
                 {/* Login Button */}
                 <button
                   type="button"
+                  onClick={handleLogin}
                   className="mt-6 w-full rounded-lg bg-blue-600 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-blue-700 hover:shadow-lg"
                 >
                   Login

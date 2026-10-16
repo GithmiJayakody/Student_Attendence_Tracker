@@ -1,3 +1,4 @@
+import api from "../services/api";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -19,6 +20,71 @@ function Register() {
   const [role, setRole] = useState("student");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const [name, setName] = useState("");
+  const [userId, setUserId] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleRegister = async () => {
+    setError("");
+    setSuccess("");
+
+    if (!name.trim() || !userId.trim() || !email.trim() || !password || !confirmPassword) {
+      setError("Please fill in all fields.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    if (password.length < 8) {
+      setError("Password must contain at least 8 characters.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const payload = {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password,
+        role,
+        ...(role === "student"
+          ? { studentId: userId.trim() }
+          : { lecturerId: userId.trim() }),
+      };
+
+      const response = await api.post("/auth/register", payload);
+
+      setSuccess(
+        response.data.message ||
+          "Registration submitted. Please wait for admin approval."
+      );
+
+      setName("");
+      setUserId("");
+      setEmail("");
+      setPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Registration failed. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-linear-to-br from-blue-100 via-white to-blue-50">
@@ -234,6 +300,8 @@ function Register() {
                       type="text"
                       placeholder="Enter your full name"
                       className="w-full rounded-lg border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
                     />
 
                   </div>
@@ -261,16 +329,18 @@ function Register() {
                           : "Enter your lecturer ID"
                       }
                       className="w-full rounded-lg border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      value={userId}
+                      onChange={(e) => setUserId(e.target.value)}
                     />
 
                   </div>
                 </div>
 
-                {/* University Email */}
+                {/* Email */}
                 <div className="mt-5">
 
                   <label className="text-sm font-semibold text-slate-800">
-                    University Email
+                    Email
                   </label>
 
                   <div className="relative mt-2">
@@ -282,15 +352,13 @@ function Register() {
 
                     <input
                       type="email"
-                      placeholder="yourname@university.edu"
+                      placeholder="Enter your email"
                       className="w-full rounded-lg border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                     />
 
                   </div>
-
-                  <p className="mt-2 text-xs text-slate-500">
-                    Use your official university email address.
-                  </p>
 
                 </div>
 
@@ -315,6 +383,8 @@ function Register() {
                         type={showPassword ? "text" : "password"}
                         placeholder="Enter your password"
                         className="w-full rounded-lg border border-slate-200 bg-white py-3 pl-11 pr-11 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
                       />
 
                       <button
@@ -350,6 +420,8 @@ function Register() {
                         type={showConfirmPassword ? "text" : "password"}
                         placeholder="Confirm your password"
                         className="w-full rounded-lg border border-slate-200 bg-white py-3 pl-11 pr-11 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
                       />
 
                       <button
@@ -374,10 +446,24 @@ function Register() {
                 {/* Create Account */}
                 <button
                   type="button"
+                  onClick={handleRegister}
                   className="mt-6 w-full rounded-lg bg-blue-600 py-3.5 text-sm font-semibold text-white shadow-md transition hover:bg-blue-700 hover:shadow-lg"
                 >
-                  Create Account
+                  {loading ? "Creating Account..." : "Create Account"}
                 </button>
+
+                
+                {error && (
+                  <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                    {error}
+                  </p>
+                )}
+
+                {success && (
+                  <p className="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-700">
+                    {success}
+                  </p>
+                )}
 
                 {/* Divider */}
                 <div className="my-5 flex items-center gap-3">
