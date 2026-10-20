@@ -1,13 +1,14 @@
-
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import {
-  GraduationCap, LayoutDashboard, Users, ClipboardCheck, BookOpen,
+  LayoutDashboard, Users, ClipboardCheck, BookOpen,
   UserRoundCog, BarChart3, Settings, LogOut, Bell, Search,
   Plus, RefreshCw, CheckCircle, XCircle, Pencil, Trash2, Eye,
   Menu, X, CalendarDays, TrendingUp, ChevronDown, LoaderCircle
 } from "lucide-react";
+
+import logo from "../assets/Logo-GraduationCap.png";
 
 const authConfig = () => ({
   headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
@@ -250,10 +251,18 @@ function AdminDashboard() {
           >
             {mobileMenu ? <X size={22} /> : <Menu size={22} />}
           </button>
-          <GraduationCap size={38} className="text-blue-600" />
-          <h1 className="text-xl font-extrabold tracking-tight text-slate-950 sm:text-2xl">
-            Student<span className="text-blue-600">Track</span>
-          </h1>
+          <Link to="/" className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              <img
+                src={logo}
+                alt="StudentTrack"
+                className="h-10 w-12 object-contain"
+              />
+            </div>
+            <span className="text-2xl font-bold tracking-tight sm:text-3xl">
+              Student<span className="text-blue-600">Track</span>
+            </span>
+          </Link>
         </div>
 
         <div className="flex items-center gap-3 sm:gap-5">
@@ -311,7 +320,11 @@ function AdminDashboard() {
               <LogOut size={19} /> Logout
             </button>
             <div className="mt-5 rounded-xl bg-linear-to-br from-blue-50 to-indigo-50 p-4">
-              <GraduationCap size={34} className="mb-2 text-blue-600" />
+              <img
+                src={logo}
+                alt="StudentTrack Logo"
+                className="mb-2 h-8 w-8 object-contain"
+              />
               <p className="font-bold text-slate-900">StudentTrack</p>
               <p className="mt-1 text-xs leading-5 text-slate-500">
                 Smarter attendance for a brighter future.
@@ -583,7 +596,7 @@ function AdminDashboard() {
                             <span
                               className={`rounded-full px-3 py-1 text-xs font-semibold ${
                                 user.role === "admin"
-                                  ? "bg-purple-100 text-purple-700"
+                                  ? "bg-rose-100 text-rose-700"
                                   : user.role === "lecturer"
                                     ? "bg-violet-100 text-violet-700"
                                     : "bg-blue-100 text-blue-700"
