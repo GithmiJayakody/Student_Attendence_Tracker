@@ -31,6 +31,15 @@ function StudentDashboard() {
   const [sessions, setSessions] = useState([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [sessionsError, setSessionsError] = useState("");
+  const [attendanceRecords, setAttendanceRecords] = useState([]);
+  const [loadingAttendance, setLoadingAttendance] = useState(false);
+  const [attendanceError, setAttendanceError] = useState("");
+
+  const [attendanceSummary, setAttendanceSummary] = useState({
+    present: 0,
+    absent: 0,
+    late: 0,
+  });
 
   const fetchSubjects = async () => {
     try {
@@ -81,6 +90,55 @@ function StudentDashboard() {
     }
   };
 
+  const fetchMyAttendance = async (mySubjects) => {
+    try {
+      setLoadingAttendance(true);
+      setAttendanceError("");
+
+      const results = await Promise.all(
+        mySubjects.map((subject) =>
+          api.get(`/attendance/my/${subject._id}`)
+        )
+      );
+
+      const records = results.flatMap((result, index) =>
+        result.data.attendance.map((record) => ({
+          ...record,
+          subjectName: mySubjects[index].name,
+          subjectCode: mySubjects[index].code,
+        }))
+      );
+
+      records.sort(
+        (a, b) =>
+          new Date(b.session?.date || 0) -
+          new Date(a.session?.date || 0)
+      );
+
+      setAttendanceRecords(records);
+
+      setAttendanceSummary({
+        present: records.filter(
+          (record) => record.status?.toLowerCase() === "present"
+        ).length,
+        absent: records.filter(
+          (record) => record.status?.toLowerCase() === "absent"
+        ).length,
+        late: records.filter(
+          (record) => record.status?.toLowerCase() === "late"
+        ).length,
+      });
+
+    } catch (error) {
+      setAttendanceError(
+        error.response?.data?.message ||
+          "Failed to load attendance history."
+      );
+    } finally {
+      setLoadingAttendance(false);
+    }
+  };
+
   useEffect(() => {
     const loadStudentData = async () => {
       try {
@@ -91,6 +149,7 @@ function StudentDashboard() {
         setSubjects(response.data);
 
         await fetchMySessions(response.data);
+        await fetchMyAttendance(response.data);
       } catch (error) {
         setSubjectsError(
           error.response?.data?.message || "Failed to load enrolled subjects."
@@ -129,36 +188,65 @@ function StudentDashboard() {
     });
   };
 
+  const totalSessions = sessions.length;
+
+  const attendedSessions = attendanceRecords.filter((record) => {
+    const status = record.status?.toLowerCase();
+    return status === "present" || status === "late";
+  }).length;
+
+  const attendancePercentage =
+    totalSessions > 0
+      ? Math.round((attendedSessions / totalSessions) * 100)
+      : 0;
+
+  const subjectsBelow80 = subjects.filter((subject) => {
+    const subjectSessions = sessions.filter(
+      (session) => session.subjectCode === subject.code
+    );
+
+    if (subjectSessions.length === 0) return false;
+
+    const subjectAttendance = attendanceRecords.filter(
+      (record) =>
+        record.subjectCode === subject.code &&
+        ["present", "late"].includes(record.status?.toLowerCase())
+    ).length;
+
+    return (subjectAttendance / subjectSessions.length) * 100 < 80;
+  }).length;
+
   const cards = [
     {
       title: "Enrolled Subjects",
-      value: "—",
+      value: subjects.length,
       subtitle: "Your subjects",
       icon: BookOpen,
       color: "blue",
     },
     {
       title: "Total Sessions",
-      value: "—",
+      value: totalSessions,
       subtitle: "Across all subjects",
       icon: CalendarDays,
       color: "violet",
     },
     {
       title: "Attendance Percentage",
-      value: "—",
+      value: `${attendancePercentage}%`,
       subtitle: "Your attendance",
       icon: CheckCircle2,
       color: "emerald",
     },
     {
       title: "Subjects Below 80%",
-      value: "—",
+      value: subjectsBelow80,
       subtitle: "Need attention",
       icon: TriangleAlert,
       color: "orange",
     },
   ];
+
 
   const [enrollmentKey, setEnrollmentKey] = useState("");
   const [enrollmentLoading, setEnrollmentLoading] = useState(false);
@@ -402,7 +490,40 @@ function StudentDashboard() {
                         {subject.lecturer?.name || "Not assigned"}
                       </td>
                       <td className="px-3 py-4">
-                        —
+                        {(() => {
+                          const subjectSessions = sessions.filter(
+                            (session) => session.subjectCode === subject.code
+                          );
+
+                          const subjectRecords = attendanceRecords.filter(
+                            (record) => record.subjectCode === subject.code
+                          );
+
+                          if (subjectRecords.length === 0 || subjectSessions.length === 0) {
+                            return <span className="text-slate-400">—</span>;
+                          }
+
+                          const attended = subjectRecords.filter((record) =>
+                            ["present", "late"].includes(record.status?.toLowerCase())
+                          ).length;
+
+                          const percentage = Math.round(
+                            (attended / subjectSessions.length) * 100
+                          );
+
+                          const badgeStyle =
+                            percentage >= 80
+                              ? "bg-green-100 text-green-700"
+                              : "bg-red-100 text-red-700";
+
+                          return (
+                            <span
+                              className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${badgeStyle}`}
+                            >
+                              {percentage}%
+                            </span>
+                          );
+                        })()}
                       </td>
                     </tr>
                   ))
@@ -519,13 +640,79 @@ function StudentDashboard() {
           id="history"
           className="mb-6 scroll-mt-24 rounded-2xl border border-white bg-white p-5 shadow-sm sm:p-6"
         >
+          
           <h2 className="mb-4 flex items-center gap-3 text-lg font-extrabold sm:text-xl">
             <ClipboardList className="text-blue-600" />
-            Recent Attendance
+            Attendance History
           </h2>
-          <p className="py-6 text-center text-sm text-slate-500">
-            Your attendance records will appear here.
-          </p>
+
+          {loadingAttendance ? (
+            <p className="py-6 text-center text-slate-500">
+              Loading attendance history...
+            </p>
+          ) : attendanceError ? (
+            <p className="py-6 text-center text-red-500">
+              {attendanceError}
+            </p>
+          ) : attendanceRecords.length === 0 ? (
+            <p className="py-6 text-center text-slate-500">
+              No attendance records available yet.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-150 text-left text-sm">
+                <thead className="bg-blue-50 text-xs text-[#24447c]">
+                  <tr>
+                    <th className="px-3 py-3">#</th>
+                    <th className="px-3 py-3">Subject</th>
+                    <th className="px-3 py-3">Date</th>
+                    <th className="px-3 py-3">Topic</th>
+                    <th className="px-3 py-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attendanceRecords.map((record, index) => {
+                    const status = record.status?.toLowerCase();
+
+                    const statusStyles = {
+                      present: "bg-green-100 text-green-700",
+                      absent: "bg-red-100 text-red-700",
+                      late: "bg-orange-100 text-orange-700",
+                    };
+
+                    return (
+                      <tr
+                        key={record._id}
+                        className="border-b border-blue-50"
+                      >
+                        <td className="px-3 py-4">{index + 1}</td>
+                        <td className="px-3 py-4">
+                          {record.subjectCode} - {record.subjectName}
+                        </td>
+                        <td className="px-3 py-4">
+                          {record.session?.date
+                            ? new Date(record.session.date).toLocaleDateString()
+                            : "—"}
+                        </td>
+                        <td className="px-3 py-4">
+                          {record.session?.topic || "—"}
+                        </td>
+                        <td className="px-3 py-4">
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${
+                              statusStyles[status] || "bg-slate-100 text-slate-600"
+                            }`}
+                          >
+                            {record.status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
 
         {/* Attendance Summary */}
@@ -537,18 +724,33 @@ function StudentDashboard() {
             <ChartNoAxesColumn className="text-blue-600" />
             Attendance Summary
           </h2>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-3">                        
             {[
-              { label: "Present", icon: CheckCircle2, color: "text-emerald-600" },
-              { label: "Absent", icon: TriangleAlert, color: "text-red-500" },
-              { label: "Late", icon: Clock3, color: "text-orange-500" },
+              {
+                label: "Present",
+                icon: CheckCircle2,
+                color: "text-emerald-600",
+                value: attendanceSummary.present,
+              },
+              {
+                label: "Absent",
+                icon: TriangleAlert,
+                color: "text-red-500",
+                value: attendanceSummary.absent,
+              },
+              {
+                label: "Late",
+                icon: Clock3,
+                color: "text-orange-500",
+                value: attendanceSummary.late,
+              },
             ].map((item) => {
               const Icon = item.icon;
               return (
                 <div key={item.label} className="rounded-xl bg-blue-50 p-5">
                   <Icon className={item.color} size={25} />
                   <p className="mt-3 text-sm text-slate-600">{item.label}</p>
-                  <p className="mt-1 text-2xl font-bold">—</p>
+                  <p className="mt-1 text-2xl font-bold">{item.value}</p>
                 </div>
               );
             })}
