@@ -1,0 +1,582 @@
+import api from "../services/api";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  GraduationCap,
+  LayoutDashboard,
+  BookOpen,
+  PlusCircle,
+  CalendarDays,
+  ClipboardList,
+  ChartNoAxesColumn,
+  UserRound,
+  LogOut,
+  Bell,
+  Menu,
+  X,
+  CheckCircle2,
+  TriangleAlert,
+  Clock3,
+  ArrowRight,
+} from "lucide-react";
+
+import logo from "../assets/Logo-GraduationCap.png";
+
+function StudentDashboard() {
+  const navigate = useNavigate();
+  const [mobileMenu, setMobileMenu] = useState(false);
+  const [subjects, setSubjects] = useState([]);
+  const [loadingSubjects, setLoadingSubjects] = useState(true);
+  const [subjectsError, setSubjectsError] = useState("");
+  const [sessions, setSessions] = useState([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
+  const [sessionsError, setSessionsError] = useState("");
+
+  const fetchSubjects = async () => {
+    try {
+      setLoadingSubjects(true);
+      setSubjectsError("");
+
+      const response = await api.get("/subjects/viewEnrolled");
+      setSubjects(response.data);
+    } catch (error) {
+      setSubjectsError(
+        error.response?.data?.message || "Failed to load enrolled subjects."
+      );
+    } finally {
+      setLoadingSubjects(false);
+    }
+  };
+
+  const fetchMySessions = async (mySubjects) => {
+    try {
+      setLoadingSessions(true);
+      setSessionsError("");
+
+      const results = await Promise.all(
+        mySubjects.map((subject) =>
+          api.get(`/sessions/subject/${subject._id}`)
+        )
+      );
+
+      const allSessions = results.flatMap((result, index) =>
+        result.data.map((session) => ({
+          ...session,
+          subjectName: mySubjects[index].name,
+          subjectCode: mySubjects[index].code,
+        }))
+      );
+
+      allSessions.sort(
+        (a, b) => new Date(a.date) - new Date(b.date)
+      );
+
+      setSessions(allSessions);
+    } catch (error) {
+      setSessionsError(
+        error.response?.data?.message || "Failed to load class sessions."
+      );
+    } finally {
+      setLoadingSessions(false);
+    }
+  };
+
+  useEffect(() => {
+    const loadStudentData = async () => {
+      try {
+        setLoadingSubjects(true);
+        setSubjectsError("");
+
+        const response = await api.get("/subjects/viewEnrolled");
+        setSubjects(response.data);
+
+        await fetchMySessions(response.data);
+      } catch (error) {
+        setSubjectsError(
+          error.response?.data?.message || "Failed to load enrolled subjects."
+        );
+      } finally {
+        setLoadingSubjects(false);
+      }
+    };
+
+    loadStudentData();
+  }, []);
+
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+  const menuItems = [
+    { label: "Dashboard", icon: LayoutDashboard, id: "dashboard" },
+    { label: "My Subjects", icon: BookOpen, id: "subjects" },
+    { label: "Join Subject", icon: PlusCircle, id: "join-subject" },
+    { label: "Class Sessions", icon: CalendarDays, id: "sessions" },
+    { label: "Attendance History", icon: ClipboardList, id: "history" },
+    { label: "Attendance Summary", icon: ChartNoAxesColumn, id: "summary" },
+    { label: "Profile", icon: UserRound, id: "profile" },
+  ];
+
+  const logout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/login");
+  };
+
+  const scrollToSection = (id) => {
+    setMobileMenu(false);
+    document.getElementById(id)?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
+  const cards = [
+    {
+      title: "Enrolled Subjects",
+      value: "—",
+      subtitle: "Your subjects",
+      icon: BookOpen,
+      color: "blue",
+    },
+    {
+      title: "Total Sessions",
+      value: "—",
+      subtitle: "Across all subjects",
+      icon: CalendarDays,
+      color: "violet",
+    },
+    {
+      title: "Attendance Percentage",
+      value: "—",
+      subtitle: "Your attendance",
+      icon: CheckCircle2,
+      color: "emerald",
+    },
+    {
+      title: "Subjects Below 80%",
+      value: "—",
+      subtitle: "Need attention",
+      icon: TriangleAlert,
+      color: "orange",
+    },
+  ];
+
+  const [enrollmentKey, setEnrollmentKey] = useState("");
+  const [enrollmentLoading, setEnrollmentLoading] = useState(false);
+  const [enrollmentMessage, setEnrollmentMessage] = useState("");
+  const [enrollmentError, setEnrollmentError] = useState("");
+
+  const handleJoinSubject = async (e) => {
+    e.preventDefault();
+
+    try{
+        setEnrollmentLoading(true);
+        setEnrollmentMessage("");
+        setEnrollmentError("");
+
+        const response = await api.post("/subjects/enrol", {
+            enrollmentKey: enrollmentKey.trim(),
+        });
+
+        setEnrollmentMessage(
+            response.data.message || "Successfully enrolled in the subject!"
+        );
+        setEnrollmentKey("");
+        await fetchSubjects(); // Refresh the subjects list after successful enrollment
+    } catch (error) {
+        setEnrollmentError(
+            error.response?.data?.message || "Failed to join subject."
+        );
+    } finally {
+        setEnrollmentLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#edf6ff] text-[#101b50]">
+
+      {/* Header */}
+      <header className="fixed inset-x-0 top-0 z-40 flex h-16 items-center justify-between border-b border-blue-100 bg-white px-5 shadow-sm md:px-8">
+        <div className="flex items-center gap-5">
+          <button
+            onClick={() => setMobileMenu(!mobileMenu)}
+            className="rounded-lg p-2 text-[#24447c] transition hover:bg-blue-50 lg:hidden"
+            aria-label="Toggle menu"
+          >
+            {mobileMenu ? <X size={23} /> : <Menu size={23} />}
+          </button>
+
+          <Link to="/student" className="flex items-center gap-3">
+            <img
+              src={logo}
+              alt="StudentTrack"
+              className="h-10 w-10 object-contain"
+            />
+            <span className="text-2xl font-extrabold tracking-tight">
+              Student<span className="text-blue-600">Track</span>
+            </span>
+          </Link>
+        </div>
+        <div className="flex items-center gap-4 md:gap-6">
+          <button
+            aria-label="Notifications"
+            className="relative rounded-full p-2 text-slate-500 transition hover:bg-blue-50"
+          >
+            <Bell size={21} />
+            <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
+          </button>
+
+          <div className="border-l border-slate-200 pl-4 text-right">
+            <p className="text-sm font-bold text-[#101b50]">
+              {user.name || "Student"}
+            </p>
+            <p className="text-xs text-slate-500">Student</p>
+          </div>
+
+          <button
+            onClick={logout}
+            aria-label="Logout"
+            title="Logout"
+            className="hidden rounded-lg p-2 text-slate-500 transition hover:bg-red-50 hover:text-red-600 sm:block"
+          >
+            <LogOut size={21} />
+          </button>
+        </div>
+      </header>
+
+
+      {/* Sidebar */}
+      <aside
+        className={`fixed bottom-0 left-0 top-16 z-30 flex w-60 flex-col border-r border-blue-100 bg-white px-4 py-5 transition-transform lg:translate-x-0 ${
+          mobileMenu ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <nav className="space-y-2">
+          {menuItems.map((item, index) => {
+            const Icon = item.icon;
+
+            return (
+              <button
+                key={item.id}
+                onClick={() => scrollToSection(item.id)}
+                className={`flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left text-sm font-medium transition ${
+                  index === 0
+                    ? "bg-blue-500 text-white shadow-md shadow-blue-200"
+                    : "text-[#24447c] hover:bg-blue-50"
+                }`}
+              >
+                <Icon size={20} />
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="mt-auto border-t border-blue-100 pt-4">
+          <button
+            onClick={logout}
+            className="flex w-full items-center gap-4 rounded-xl px-4 py-3 text-sm font-medium text-[#24447c] hover:bg-red-50 hover:text-red-600"
+          >
+            <LogOut size={20} />
+            Logout
+          </button>
+
+          <div className="mt-7 rounded-2xl bg-linear-to-br from-blue-50 to-cyan-50 p-4">
+            <GraduationCap size={32} className="mb-3 text-blue-600" />
+            <p className="font-extrabold">
+              Student<span className="text-blue-600">Track</span>
+            </p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Smarter Attendance for a Brighter Future
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <main className="px-4 pb-10 pt-22.5 lg:ml-60 lg:px-6">
+        <section id="dashboard" className="mb-7 scroll-mt-24">
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-blue-600">
+            ━ Welcome back{user.name ? `, ${user.name}` : ""}
+          </p>
+          <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl">
+            Student <span className="text-blue-600">Dashboard</span>
+          </h1>
+          <p className="mt-3 text-sm text-slate-600 sm:text-base">
+            Track your subjects, attendance and academic progress.
+          </p>
+        </section>
+
+        {/* Summary cards */}
+        <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
+          {cards.map((card) => {
+            const Icon = card.icon;
+
+            const colors = {
+              blue: "bg-blue-100 text-blue-600",
+              violet: "bg-violet-100 text-violet-600",
+              emerald: "bg-emerald-100 text-emerald-600",
+              orange: "bg-orange-100 text-orange-600",
+            };
+
+            return (
+              <div
+                key={card.title}
+                className="flex items-center gap-4 rounded-2xl border border-white bg-white/90 p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <div className={`rounded-2xl p-4 ${colors[card.color]}`}>
+                  <Icon size={28} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-600">
+                    {card.title}
+                  </p>
+                  <p className="mt-1 text-3xl font-extrabold">{card.value}</p>
+                  <p className="mt-1 text-xs text-slate-500">{card.subtitle}</p>
+                </div>
+              </div>
+            );
+          })}
+        </section>
+
+        {/* My Subjects */}
+        <section
+          id="subjects"
+          className="mb-6 scroll-mt-24 rounded-2xl border border-white bg-white p-5 shadow-sm sm:p-6"
+        >
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <h2 className="flex items-center gap-3 text-lg font-extrabold sm:text-xl">
+              <BookOpen className="text-blue-600" />
+              My Subjects
+            </h2>
+            <button
+              onClick={() => scrollToSection("join-subject")}
+              className="flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-800"
+            >
+              Join Subject <ArrowRight size={16} />
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-150 text-left text-sm">
+              <thead className="bg-blue-50 text-xs text-[#24447c]">
+                <tr>
+                  <th className="rounded-l-lg px-3 py-3">#</th>
+                  <th className="px-3 py-3">Subject Code</th>
+                  <th className="px-3 py-3">Subject Name</th>
+                  <th className="px-3 py-3">Lecturer</th>
+                  <th className="rounded-r-lg px-3 py-3">Attendance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loadingSubjects ? (
+                  <tr>
+                    <td colSpan="5" className="px-3 py-10 text-center text-slate-500">
+                      Loading subjects...
+                    </td>
+                  </tr>
+                ) :subjectsError ? (
+                  <tr>
+                    <td colSpan="5" className="px-3 py-10 text-center text-red-500">
+                      {subjectsError}
+                    </td>
+                  </tr>
+                ) : subjects.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="px-3 py-10 text-center text-slate-500">
+                      No enrolled subjects yet. Join a subject using its enrollment key.
+                    </td>
+                  </tr>
+                ) : (
+                  subjects.map((subject,index) => (
+                    <tr key={subject._id} className="border-b border-blue-50">
+                      <td className="px-3 py-4">
+                        {index + 1}
+                      </td>
+                      <td className="px-3 py-4">
+                        {subject.code}
+                      </td>
+                      <td className="px-3 py-4">
+                        {subject.name}
+                      </td>
+                      <td className="px-3 py-4">
+                        {subject.lecturer?.name || "Not assigned"}
+                      </td>
+                      <td className="px-3 py-4">
+                        —
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* Join Subject */}
+        <section
+          id="join-subject"
+          className="mb-6 scroll-mt-24 rounded-2xl border border-white bg-white p-5 shadow-sm sm:p-6"
+        >
+          <h2 className="mb-2 flex items-center gap-3 text-lg font-extrabold sm:text-xl">
+            <PlusCircle className="text-blue-600" />
+            Join a Subject
+          </h2>
+          <p className="mb-4 text-sm text-slate-500">
+            Use the enrollment key provided by your lecturer to join a subject.
+          </p>
+          <form
+            onSubmit = {handleJoinSubject}
+            className="flex flex-col gap-3 sm:flex-row"
+          >
+            <input
+                type="text"
+                value={enrollmentKey}
+                onChange={(e) => setEnrollmentKey(e.target.value)}
+                placeholder="Enter enrollment key (e.g. HVSBIG)"
+                required
+                className="flex-1 rounded-xl border border-blue-100 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            />
+            <button
+                type="submit"
+                disabled={enrollmentLoading}
+                className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700"            
+            >
+                {enrollmentLoading ? "Joining..." : "Join Subject"}
+            </button>
+          </form>
+
+          {enrollmentMessage && (
+            <p className="mt-3 rounded-lg bg-green-50 p-3 text-sm text-green-700">
+                {enrollmentMessage}
+            </p>
+          )}
+
+          {enrollmentError && (
+            <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                {enrollmentError}
+            </p>
+          )}
+        </section>
+
+        {/* Class Sessions */}
+        <section
+          id="sessions"
+          className="mb-6 scroll-mt-24 rounded-2xl border border-white bg-white p-5 shadow-sm sm:p-6"
+        >
+          <h2 className="mb-4 flex items-center gap-3 text-lg font-extrabold sm:text-xl">
+            <CalendarDays className="text-blue-600" />
+            Class Sessions
+          </h2>
+
+          {loadingSessions ? (
+            <p className="py-6 text-center text-slate-500">
+              Loading sessions...
+            </p>
+          ) : sessionsError ? (
+            <p className="py-6 text-center text-red-500">
+              {sessionsError}
+            </p>
+          ) : sessions.length === 0 ? (
+            <p className="py-6 text-center text-slate-500">
+              No class sessions available for your enrolled subjects.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-162.5 text-left text-sm">
+                <thead className="bg-blue-50 text-xs text-[#24447c]">
+                  <tr>
+                    <th className="px-3 py-3">#</th>
+                    <th className="px-3 py-3">Subject</th>
+                    <th className="px-3 py-3">Date</th>
+                    <th className="px-3 py-3">Time</th>
+                    <th className="px-3 py-3">Topic</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sessions.map((session, index) => (
+                    <tr key={session._id} className="border-b border-blue-50">
+                      <td className="px-3 py-4">{index + 1}</td>
+                      <td className="px-3 py-4">
+                        {session.subjectCode} - {session.subjectName}
+                      </td>
+                      <td className="px-3 py-4">
+                        {new Date(session.date).toLocaleDateString()}
+                      </td>
+                      <td className="px-3 py-4 whitespace-nowrap">
+                        {session.startTime} - {session.endTime}
+                      </td>
+                      <td className="px-3 py-4">{session.topic}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        {/* Attendance History */}
+        <section
+          id="history"
+          className="mb-6 scroll-mt-24 rounded-2xl border border-white bg-white p-5 shadow-sm sm:p-6"
+        >
+          <h2 className="mb-4 flex items-center gap-3 text-lg font-extrabold sm:text-xl">
+            <ClipboardList className="text-blue-600" />
+            Recent Attendance
+          </h2>
+          <p className="py-6 text-center text-sm text-slate-500">
+            Your attendance records will appear here.
+          </p>
+        </section>
+
+        {/* Attendance Summary */}
+        <section
+          id="summary"
+          className="mb-6 scroll-mt-24 rounded-2xl border border-white bg-white p-5 shadow-sm sm:p-6"
+        >
+          <h2 className="mb-4 flex items-center gap-3 text-lg font-extrabold sm:text-xl">
+            <ChartNoAxesColumn className="text-blue-600" />
+            Attendance Summary
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {[
+              { label: "Present", icon: CheckCircle2, color: "text-emerald-600" },
+              { label: "Absent", icon: TriangleAlert, color: "text-red-500" },
+              { label: "Late", icon: Clock3, color: "text-orange-500" },
+            ].map((item) => {
+              const Icon = item.icon;
+              return (
+                <div key={item.label} className="rounded-xl bg-blue-50 p-5">
+                  <Icon className={item.color} size={25} />
+                  <p className="mt-3 text-sm text-slate-600">{item.label}</p>
+                  <p className="mt-1 text-2xl font-bold">—</p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Profile */}
+        <section
+          id="profile"
+          className="scroll-mt-24 rounded-2xl border border-white bg-white p-5 shadow-sm sm:p-6"
+        >
+          <h2 className="mb-4 flex items-center gap-3 text-lg font-extrabold sm:text-xl">
+            <UserRound className="text-blue-600" />
+            My Profile
+          </h2>
+          <p className="text-sm text-slate-600">
+            Name: <span className="font-semibold">{user.name || "—"}</span>
+          </p>
+          <p className="mt-2 text-sm text-slate-600">
+            Email: <span className="font-semibold">{user.email || "—"}</span>
+          </p>
+          <p className="mt-2 text-sm text-slate-600">
+            Role: <span className="font-semibold">Student</span>
+          </p>
+        </section>
+      </main>
+    </div>
+  );
+}
+
+export default StudentDashboard;
