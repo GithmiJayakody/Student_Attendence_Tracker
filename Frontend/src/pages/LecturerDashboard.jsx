@@ -14,6 +14,7 @@ import {
   Bell,
   Menu,
   X,
+  UserRound,
 } from "lucide-react";
 
 import logo from "../assets/Logo-GraduationCap.png";
@@ -25,7 +26,7 @@ const navItems = [
   { label: "Mark Attendance", icon: ClipboardCheck, target: "attendance" },
   { label: "Attendance Summary", icon: ChartNoAxesColumn, target: "summary" },
   { label: "Reports", icon: FileText, target: "reports" },
-  { label: "Settings", icon: Settings, target: "settings" },
+  { label: "Profile", icon: UserRound, target: "profile" },
 ];
 
 function LecturerDashboard() {
@@ -43,9 +44,41 @@ function LecturerDashboard() {
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [attendanceError, setAttendanceError] = useState("");
   const [attendanceMessage, setAttendanceMessage] = useState("");
+  const [summarySubject, setSummarySubject] = useState("");
+  const [attendanceSummary, setAttendanceSummary] = useState([]);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState("");
+  const [reportData, setReportData] = useState({});
+  const [reportLoading, setReportLoading] = useState(false);
 
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
   const lecturerName = storedUser.name || "Lecturer";
+  
+  const totalStudents = new Set(
+    subjects.flatMap((subject) =>
+      (subject.enrolledStudents || []).map((student) =>
+        typeof student === "object" ? student._id : student
+      )
+    )
+  ).size;
+
+  const allStudents = Object.values(reportData).flat();
+
+  const averageAttendance =
+    allStudents.length > 0
+      ? (
+          allStudents.reduce(
+            (total, student) =>
+              total +
+              Number(
+                student.percentage ??
+                student.attendancePercentage ??
+                0
+              ),
+            0
+          ) / allStudents.length
+        ).toFixed(1)
+      : null;
 
   const logout = () => {
     localStorage.removeItem("token");
@@ -195,6 +228,100 @@ function LecturerDashboard() {
     fetchAttendanceStudents();
   }, [selectedSession, sessions]);
 
+  
+  const fetchAttendanceSummary = async (subjectId) => {
+    if (!subjectId) {
+      setAttendanceSummary([]);
+      setSummaryError("");
+      return;
+    }
+
+    try {
+      setSummaryLoading(true);
+      setSummaryError("");
+
+      const response = await api.get(`/attendance/summary/${subjectId}`);
+      setAttendanceSummary(response.data);
+    } catch (error) {
+      setSummaryError(
+        error.response?.data?.message ||
+          "Failed to load attendance summary."
+      );
+      setAttendanceSummary([]);
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
+  const fetchReportData = async () => {
+    try {
+      setReportLoading(true);
+      setReportData({});
+
+      const results = await Promise.all(
+        subjects.map(async (subject) => {
+          const response = await api.get(
+            `/attendance/summary/${subject._id}`
+          );
+
+          return [subject._id, response.data];
+        })
+      );
+
+      setReportData(Object.fromEntries(results));
+    } catch (error) {
+      console.error("Failed to load attendance reports:", error);
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (subjects.length > 0) {
+      fetchReportData();
+    } else {
+      setReportData({});
+    }
+  }, [subjects]);
+
+  const [profile, setProfile] = useState({
+    name: "",
+    email: "",
+    lecturerId: "",
+    role: "",
+    approvalStatus: "",
+  });
+
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileMessage, setProfileMessage] = useState("");
+
+  
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        setProfileLoading(true);
+        setProfileMessage("");
+
+        const response = await api.get("/auth/profile");
+
+        setProfile(response.data);
+      } catch (error) {
+        setProfileMessage(
+          error.response?.data?.message ||
+            "Failed to load profile details."
+        );
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+
+    loadProfile();
+  }, []);
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
 
   return (
     <div className="min-h-screen bg-[#eef6ff] text-[#10234e]">
@@ -304,7 +431,7 @@ function LecturerDashboard() {
           <div className="mx-auto max-w-[1600px]">
             <section className="mb-7">
               <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-blue-600">
-                Welcome back
+                 ━ WELCOME BACK, {(profile?.name || "LECTURER").toUpperCase()}
               </p>
               <h2 className="text-3xl font-extrabold sm:text-5xl">
                 Lecturer <span className="text-blue-600">Dashboard</span>
@@ -318,8 +445,8 @@ function LecturerDashboard() {
               {[
                 { label: "My Subjects", value: loadingSubjects ? "..." : subjects.length, icon: BookOpen, color: "blue" },
                 { label: "Total Sessions", value: loadingSessions ? "..." : sessions.length, icon: CalendarDays, color: "violet" },
-                { label: "Total Students", value: "—", icon: GraduationCap, color: "emerald" },
-                { label: "Average Attendance", value: "—", icon: ChartNoAxesColumn, color: "orange" },
+                { label: "Total Students", value: loadingSubjects ? "..." : totalStudents, icon: GraduationCap, color: "emerald" },
+                { label: "Average Attendance", value: reportLoading ? "..." : averageAttendance !== null ? `${averageAttendance}%` : "—", icon: ChartNoAxesColumn, color: "orange" },
               ].map(({ label, value, icon: Icon, color }) => (
                 <div
                   key={label}
@@ -667,22 +794,495 @@ function LecturerDashboard() {
               )}
             </section>
 
-{[
-  { id: "summary", title: "Attendance Summary", description: "Review student attendance records." },
-  { id: "reports", title: "Reports", description: "Attendance reports will appear here." },
-  { id: "settings", title: "Settings", description: "Lecturer account settings." },
-].map(({ id, title, description }) => (
-  <section
-    key={id}
-    id={id}
-    className="mt-6 scroll-mt-24 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm"
-  >
-    <h3 className="text-xl font-extrabold">{title}</h3>
-    <p className="mt-2 text-sm text-slate-500">{description}</p>
-  </section>
-))}
+
+            <section
+              id="summary"
+              className="mt-6 scroll-mt-24 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm"
+            >
+              <h3 className="text-xl font-extrabold">Attendance Summary</h3>
+              <p className="mt-2 text-sm text-slate-500">
+                Select a subject to review student attendance.
+              </p>
+
+              <div className="mt-4">
+                <label className="mb-2 block text-sm font-semibold">
+                  Select Subject
+                </label>
+                <select
+                  value={summarySubject}
+                  onChange={(event) => {
+                    const subjectId = event.target.value;
+                    setSummarySubject(subjectId);
+                    fetchAttendanceSummary(subjectId);
+                  }}
+                  className="w-full rounded-xl border border-slate-200 p-3"
+                >
+                  <option value="">Choose a subject</option>
+                  {subjects.map((subject) => (
+                    <option key={subject._id} value={subject._id}>
+                      {subject.name} ({subject.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {summaryLoading && (
+                <p className="mt-5 text-sm text-slate-500">
+                  Loading attendance summary...
+                </p>
+              )}
+
+              {summaryError && (
+                <p className="mt-5 text-sm text-red-600">{summaryError}</p>
+              )}
+
+              {!summaryLoading && !summaryError && summarySubject && (
+                <div className="mt-5 overflow-x-auto">
+                  {attendanceSummary.length === 0 ? (
+                    <p className="py-6 text-sm text-slate-500">
+                      No attendance summary available for this subject yet.
+                    </p>
+                  ) : (
+                    <>
+                    {attendanceSummary.some(
+                      (student) =>
+                        Number(
+                          student.percentage ??
+                          student.attendancePercentage ??
+                          0
+                        ) < 80
+                    ) && (
+                      <div className="mb-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+                        <div className="text-xl">⚠️</div>
+
+                        <div>
+                          <h4 className="font-semibold text-red-800">
+                            Low Attendance Alert
+                          </h4>
+
+                          <p className="mt-1 text-sm text-red-700">
+                            {attendanceSummary.filter(
+                              (student) =>
+                                Number(
+                                  student.percentage ??
+                                  student.attendancePercentage ??
+                                  0
+                                ) < 80
+                            ).length}{" "}
+                            student(s) have attendance below 80%.
+                            Please review their attendance records.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    <table className="w-full min-w-162.5 text-left text-sm">
+                      <thead className="bg-blue-50 text-xs text-slate-700">
+                        <tr>
+                          <th className="px-3 py-3">#</th>
+                          <th className="px-3 py-3">Student</th>
+                          <th className="px-3 py-3">Student ID</th>
+                          <th className="px-3 py-3">Present</th>
+                          <th className="px-3 py-3">Absent</th>
+                          <th className="px-3 py-3">Late</th>
+                          <th className="px-3 py-3">Attendance</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {attendanceSummary.map((student, index) => {
+                          const isLowAttendance =
+                            Number(
+                              student.percentage ??
+                              student.attendancePercentage ??
+                              0
+                            ) < 80;
+
+                          return (
+                            <tr
+                              key={student.studentId || student._id || index}
+                              className="border-b border-blue-50"
+                            >
+                              <td className="px-3 py-4">{index + 1}</td>
+
+                              <td className="px-3 py-4">
+                                {student.name || student.student?.name || "—"}
+                              </td>
+
+                              <td className="px-3 py-4">
+                                {student.studentId ||
+                                  student.student?.studentId ||
+                                  "—"}
+                              </td>
+
+                              <td className="px-3 py-4">
+                                {student.presentCount ?? student.present ?? 0}
+                              </td>
+
+                              <td className="px-3 py-4">
+                                {student.absentCount ?? student.absent ?? 0}
+                              </td>
+
+                              <td className="px-3 py-4">
+                                {student.lateCount ?? student.late ?? 0}
+                              </td>
+
+                              <td className="px-3 py-4">
+                                <span
+                                  className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                                    isLowAttendance
+                                      ? "bg-red-100 text-red-700"
+                                      : "bg-green-100 text-green-700"
+                                  }`}
+                                >
+                                  {student.percentage ??
+                                    student.attendancePercentage ??
+                                    0}
+                                  %
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    </>
+                  )}
+                </div>
+              )}
+            </section>
+            
+            <section
+              id="reports"
+              className="mt-6 scroll-mt-24 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm"
+            >
+              <h3 className="text-xl font-extrabold">Attendance Reports</h3>
+              <p className="mt-2 text-sm text-slate-500">
+                View attendance statistics for your subjects.
+              </p>
+
+              <div className="mt-5 overflow-x-auto">
+                <table className="w-full min-w-150 text-left text-sm">
+                  
+                <thead className="bg-blue-50 text-xs text-slate-700">
+                  <tr>
+                    <th className="px-3 py-3">#</th>
+                    <th className="px-3 py-3">Subject</th>
+                    <th className="px-3 py-3">Code</th>
+                    <th className="px-3 py-3">Sessions</th>
+                    <th className="px-3 py-3">Students</th>
+                    <th className="px-3 py-3">Present</th>
+                    <th className="px-3 py-3">Absent</th>
+                    <th className="px-3 py-3">Late</th>
+                    <th className="px-3 py-3">Attendance</th>
+                  </tr>
+                </thead>
+
+                  <tbody>
+                    {subjects.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" className="px-3 py-6 text-center text-slate-500">
+                          No subjects available.
+                        </td>
+                      </tr>
+                    ) : (                      
+                      subjects.map((subject, index) => {
+                        const subjectId = subject._id;
+                        
+                        const students = reportData[subjectId] || [];
+
+                        const present = students.reduce(
+                          (total, student) =>
+                            total + (student.presentCount ?? student.present ?? 0),
+                          0
+                        );
+
+                        const absent = students.reduce(
+                          (total, student) =>
+                            total + (student.absentCount ?? student.absent ?? 0),
+                          0
+                        );
+
+                        const late = students.reduce(
+                          (total, student) =>
+                            total + (student.lateCount ?? student.late ?? 0),
+                          0
+                        );
+
+                        const averageAttendance =
+                          students.length > 0
+                            ? (
+                                students.reduce(
+                                  (total, student) =>
+                                    total + Number(student.percentage ?? student.attendancePercentage ?? 0),
+                                  0
+                                ) / students.length
+                              ).toFixed(1)
+                            : null;
 
 
+                        const subjectSessions = sessions.filter((session) => {
+                          const sessionSubjectId =
+                            typeof session.subject === "object"
+                              ? session.subject?._id
+                              : session.subject;
+
+                          return sessionSubjectId === subjectId;
+                        });
+
+                        return (
+                          <tr key={subjectId} className="border-b border-blue-50">
+                            <td className="px-3 py-4">{index + 1}</td>
+                            <td className="px-3 py-4">{subject.name}</td>
+                            <td className="px-3 py-4">{subject.code}</td>
+                            <td className="px-3 py-4">{subjectSessions.length}</td>
+                            <td className="px-3 py-4">
+                              {subject.enrolledStudents?.length ?? 0}
+                            </td>
+                            <td className="px-3 py-4">{reportLoading ? "..." : present}</td>
+                            <td className="px-3 py-4">{reportLoading ? "..." : absent}</td>
+                            <td className="px-3 py-4">{reportLoading ? "..." : late}</td>
+                            <td className="px-3 py-4 font-semibold">
+                              {reportLoading
+                                ? "..."
+                                : averageAttendance !== null
+                                  ? `${averageAttendance}%`
+                                  : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+
+            <section
+              id="profile"
+              className="mt-6 scroll-mt-24 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm"
+            >
+              <div className="mb-6">
+                <h3 className="text-xl font-extrabold text-slate-800">
+                  My Profile
+                </h3>
+                <p className="mt-2 text-sm text-slate-500">
+                  Manage your lecturer profile information.
+                </p>
+              </div>
+
+              {profileLoading ? (
+                <p className="text-sm text-slate-500">
+                  Loading profile details...
+                </p>
+              ) : (
+                <>         
+                  {profileMessage && (
+                    <p
+                      className={`mb-4 rounded-lg p-3 text-sm ${
+                        profileMessage.toLowerCase().includes("success")
+                          ? "bg-green-50 text-green-700"
+                          : "bg-red-50 text-red-600"
+                      }`}
+                      role="status"
+                    >
+                      {profileMessage}
+                    </p>
+                  )}
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      setProfileMessage("");
+
+                      try {
+                        const response = await api.put("/auth/profile", {
+                          name: profile.name,
+                        });
+
+                        setProfile((previous) => ({
+                          ...previous,
+                          ...response.data.user,
+                        }));
+
+                        setProfileMessage("Profile updated successfully.");
+                      } catch (error) {
+                        setProfileMessage(
+                          error.response?.data?.message ||
+                            "Failed to update profile."
+                        );
+                      }
+                    }}
+                    className="max-w-2xl space-y-5"
+                  >
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        Full Name
+                      </label>
+                      <input
+                        type="text"
+                        value={profile.name || ""}
+                        onChange={(e) =>
+                          setProfile((previous) => ({
+                            ...previous,
+                            name: e.target.value,
+                          }))
+                        }
+                        required
+                        className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        Email Address
+                      </label>
+                      <input
+                        type="email"
+                        value={profile.email || ""}
+                        readOnly
+                        className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        Lecturer ID
+                      </label>
+                      <input
+                        type="text"
+                        value={profile.lecturerId || "Not assigned"}
+                        readOnly
+                        className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500"
+                      />
+                    </div>
+
+                    <div className="grid gap-5 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-slate-700">
+                          Role
+                        </label>
+                        <input
+                          type="text"
+                          value={profile.role || "Lecturer"}
+                          readOnly
+                          className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-slate-700">
+                          Account Status
+                        </label>
+                        <input
+                          type="text"
+                          value={profile.approvalStatus || "Unknown"}
+                          readOnly
+                          className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm capitalize text-slate-500"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    >
+                      Save Changes
+                    </button>
+                  </form>               
+                  <div className="mt-8 border-t border-slate-100 pt-6">
+                    <h4 className="text-lg font-bold text-slate-800">
+                      Change Password
+                    </h4>
+                    <p className="mt-2 text-sm text-slate-500">
+                      Update your password to keep your account secure.
+                    </p>
+
+                    <form
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        setProfileMessage("");
+
+                        if (newPassword !== confirmPassword) {
+                          setProfileMessage("New passwords do not match.");
+                          return;
+                        }
+
+                        try {
+                          const response = await api.put("/auth/change-password", {
+                            currentPassword,
+                            newPassword,
+                          });
+
+                          setProfileMessage(
+                            response.data.message || "Password changed successfully."
+                          );
+
+                          setCurrentPassword("");
+                          setNewPassword("");
+                          setConfirmPassword("");
+                        } catch (error) {
+                          setProfileMessage(
+                            error.response?.data?.message ||
+                              "Failed to change password."
+                          );
+                        }
+                      }}
+                      className="mt-5 max-w-2xl space-y-5"
+                    >
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-slate-700">
+                          Current Password
+                        </label>
+                        <input
+                          type="password"
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                          required
+                          autoComplete="current-password"
+                          className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-slate-700">
+                          New Password
+                        </label>
+                        <input
+                          type="password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          required
+                          minLength={8}
+                          autoComplete="new-password"
+                          className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-slate-700">
+                          Confirm New Password
+                        </label>
+                        <input
+                          type="password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          required
+                          minLength={8}
+                          autoComplete="new-password"
+                          className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-blue-700"
+                      >
+                        Update Password
+                      </button>
+                    </form>
+                  </div>
+                </>
+              )}
+            </section>
 
 
             <footer className="py-6 text-center text-xs text-slate-500">

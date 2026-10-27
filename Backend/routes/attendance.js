@@ -80,43 +80,81 @@ router.get('/my/:subjectId', protect, authorizeRoles('student'), async (req, res
 
 
 
-//Get attendance summary for all students in a subject (Lecturer)
-router.get('/summary/:subjectId', protect, authorizeRoles('lecturer'), async (req, res) => {
-  try {
-    const subject = await Subject.findById(req.params.subjectId)
-      .populate('enrolledStudents', 'name email studentId');
 
-    const totalSessions = await Session.countDocuments({ subject: req.params.subjectId });
+ // Get attendance summary for all students in a subject (Lecturer)
+router.get(
+  '/summary/:subjectId',
+  protect,
+  authorizeRoles('lecturer'),
+  async (req, res) => {
+    try {
+      const subject = await Subject.findById(req.params.subjectId)
+        .populate('enrolledStudents', 'name email studentId');
 
-    const summary = await Promise.all(
-      subject.enrolledStudents.map(async (student) => {
-        const presentCount = await Attendance.countDocuments({
-          subject: req.params.subjectId,
-          student: student._id,
-          status: { $in: ['present', 'late'] }
+      if (!subject) {
+        return res.status(404).json({
+          message: 'Subject not found'
         });
+      }
 
-        const percentage = totalSessions > 0 ? ((presentCount / totalSessions) * 100).toFixed(1) : 0;
+      const totalSessions = await Session.countDocuments({
+        subject: req.params.subjectId
+      });
 
-        return {
-          student: {
-            id: student._id,
-            name: student.name,
-            email: student.email,
-            studentId: student.studentId
-          },
-          totalSessions,
-          presentCount,
-          percentage,
-          warning: percentage < 80
-        };
-      })
-    );
+      const summary = await Promise.all(
+        subject.enrolledStudents.map(async (student) => {
+          const [presentCount, absentCount, lateCount] =
+            await Promise.all([
+              Attendance.countDocuments({
+                subject: req.params.subjectId,
+                student: student._id,
+                status: 'present'
+              }),
 
-    res.status(200).json(summary);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+              Attendance.countDocuments({
+                subject: req.params.subjectId,
+                student: student._id,
+                status: 'absent'
+              }),
+
+              Attendance.countDocuments({
+                subject: req.params.subjectId,
+                student: student._id,
+                status: 'late'
+              })
+            ]);
+
+          // Present and late both count as attended
+          const attendedCount = presentCount + lateCount;
+
+          const percentage =
+            totalSessions > 0
+              ? ((attendedCount / totalSessions) * 100).toFixed(1)
+              : '0.0';
+
+          return {
+            student: {
+              id: student._id,
+              name: student.name,
+              email: student.email,
+              studentId: student.studentId
+            },
+            totalSessions,
+            presentCount,
+            absentCount,
+            lateCount,
+            percentage,
+            warning: Number(percentage) < 80
+          };
+        })
+      );
+
+      res.status(200).json(summary);
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
   }
-});
+);
+
 
 module.exports = router;
