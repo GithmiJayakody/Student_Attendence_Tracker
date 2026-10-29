@@ -34,6 +34,16 @@ function StudentDashboard() {
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [attendanceError, setAttendanceError] = useState("");
+  
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMessage, setProfileMessage] = useState("");
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState("");
 
   const [attendanceSummary, setAttendanceSummary] = useState({
     present: 0,
@@ -162,7 +172,37 @@ function StudentDashboard() {
     loadStudentData();
   }, []);
 
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  useEffect(() => {
+    const loadStudentProfile = async () => {
+      try {
+        const response = await api.get("/auth/profile");
+        const profileData = response.data;
+
+        setUser((previousUser) => {
+          const updatedUser = {
+            ...previousUser,
+            ...profileData,
+          };
+
+          localStorage.setItem("user", JSON.stringify(updatedUser));
+
+          return updatedUser;
+        });
+      } catch (error) {
+        console.error(
+          "Failed to load student profile:",
+          error.response?.data?.message || error.message
+        );
+      }
+    };
+
+    loadStudentProfile();
+  }, []);
+  
+  const [user, setUser] = useState(() =>
+    JSON.parse(localStorage.getItem("user") || "{}")
+  );
+
 
   const menuItems = [
     { label: "Dashboard", icon: LayoutDashboard, id: "dashboard" },
@@ -276,6 +316,67 @@ function StudentDashboard() {
         );
     } finally {
         setEnrollmentLoading(false);
+    }
+  };
+
+  const handleProfileUpdate = async (e) => {
+    e.preventDefault();
+    setProfileSaving(true);
+    setProfileMessage("");
+
+    try {
+      const response = await api.put("/auth/profile", {
+        name: user.name,
+      });
+
+      const updatedUser = {
+        ...user,
+        ...response.data.user,
+      };
+
+      setUser(updatedUser);
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+
+      setProfileMessage("Profile updated successfully.");
+    } catch (error) {
+      setProfileMessage(
+        error.response?.data?.message || "Failed to update profile."
+      );
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    setPasswordMessage("");
+
+    if (newPassword !== confirmPassword) {
+      setPasswordMessage("New passwords do not match.");
+      return;
+    }
+
+    setPasswordSaving(true);
+
+    try {
+      const response = await api.put("/auth/change-password", {
+        currentPassword,
+        newPassword,
+      });
+
+      setPasswordMessage(
+        response.data.message || "Password changed successfully."
+      );
+
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error) {
+      setPasswordMessage(
+        error.response?.data?.message || "Failed to change password."
+      );
+    } finally {
+      setPasswordSaving(false);
     }
   };
 
@@ -757,25 +858,169 @@ function StudentDashboard() {
           </div>
         </section>
 
-        {/* Profile */}
+        {/* Profile */}     
         <section
           id="profile"
-          className="scroll-mt-24 rounded-2xl border border-white bg-white p-5 shadow-sm sm:p-6"
+          className="mb-6 scroll-mt-24 rounded-2xl border border-white bg-white p-5 shadow-sm sm:p-6"
         >
           <h2 className="mb-4 flex items-center gap-3 text-lg font-extrabold sm:text-xl">
             <UserRound className="text-blue-600" />
             My Profile
           </h2>
-          <p className="text-sm text-slate-600">
-            Name: <span className="font-semibold">{user.name || "—"}</span>
-          </p>
-          <p className="mt-2 text-sm text-slate-600">
-            Email: <span className="font-semibold">{user.email || "—"}</span>
-          </p>
-          <p className="mt-2 text-sm text-slate-600">
-            Role: <span className="font-semibold">Student</span>
-          </p>
+
+          <form onSubmit={handleProfileUpdate}>
+            <div className="grid max-w-3xl gap-5 sm:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  value={user.name || ""}
+                  onChange={(e) =>
+                    setUser((previousUser) => ({
+                      ...previousUser,
+                      name: e.target.value,
+                    }))
+                  }
+                  required
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Email Address
+                </label>
+                <div className="break-all rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                  {user.email || "—"}
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Role
+                </label>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm capitalize text-slate-600">
+                  Student
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Student ID
+                </label>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                  {user.studentId || "Not assigned"}
+                </div>
+              </div>
+            </div>
+
+            {profileMessage && (
+              <p
+                className={`mt-4 text-sm font-medium ${
+                  profileMessage.toLowerCase().includes("success")
+                    ? "text-green-600"
+                    : "text-red-600"
+                }`}
+              >
+                {profileMessage}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={profileSaving}
+              className="mt-5 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {profileSaving ? "Saving..." : "Save Changes"}
+            </button>
+          </form>
+          <div className="mt-8 border-t border-slate-200 pt-6">
+            <h3 className="mb-2 text-lg font-extrabold text-slate-800">
+              Change Password
+            </h3>
+
+            <p className="mb-5 text-sm text-slate-500">
+              Update your password to keep your account secure.
+            </p>
+
+            <form
+              onSubmit={handlePasswordChange}
+              className="grid max-w-3xl gap-5"
+            >
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Current Password
+                </label>
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  autoComplete="current-password"
+                  required
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  placeholder="Enter current password"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  autoComplete="new-password"
+                  minLength={8}
+                  required
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  placeholder="Enter new password (at least 8 characters)"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
+                  minLength={8}
+                  required
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  placeholder="Re-enter new password"
+                />
+              </div>
+
+              {passwordMessage && (
+                <p
+                  className={`text-sm font-medium ${
+                    passwordMessage.toLowerCase().includes("success")
+                      ? "text-green-600"
+                      : "text-red-600"
+                  }`}
+                >
+                  {passwordMessage}
+                </p>
+              )}
+
+              <div>
+                <button
+                  type="submit"
+                  disabled={passwordSaving}
+                  className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {passwordSaving ? "Updating..." : "Update Password"}
+                </button>
+              </div>
+            </form>
+          </div>
         </section>
+
       </main>
     </div>
   );

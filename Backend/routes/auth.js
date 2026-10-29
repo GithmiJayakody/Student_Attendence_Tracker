@@ -173,6 +173,7 @@ router.get('/profile', protect, async (req, res) => {
       name: user.name,
       email: user.email,
       lecturerId: user.lecturerId,
+      studentId: user.studentId,
       role: user.role,
       approvalStatus: user.approvalStatus
     });
@@ -214,6 +215,7 @@ router.put('/profile', protect, async (req, res) => {
         name: user.name,
         email: user.email,
         lecturerId: user.lecturerId,
+        studentId: user.studentId,
         role: user.role,
         approvalStatus: user.approvalStatus
       }
