@@ -36,18 +36,18 @@ function LecturerDashboard() {
   const [loadingSubjects, setLoadingSubjects] = useState(true);
   const [subjectsError, setSubjectsError] = useState("");
   const [sessions, setSessions] = useState([]);
-  const [loadingSessions, setLoadingSessions] = useState(false);
-  const [sessionsError, setSessionsError] = useState("");
-  const [selectedSubject, setSelectedSubject] = useState("");
-  const [selectedSession, setSelectedSession] = useState("");
   const [attendanceStudents, setAttendanceStudents] = useState([]);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [attendanceError, setAttendanceError] = useState("");
   const [attendanceMessage, setAttendanceMessage] = useState("");
+  const [showCreateSessionModal, setShowCreateSessionModal] = useState(false);
+  const [showAllSessions, setShowAllSessions] = useState(false);
+  const [viewingSession, setViewingSession] = useState(null);
+  const [loadingSessions, setLoadingSessions] = useState(false);
+  const [sessionsError, setSessionsError] = useState("");
+  const [selectedSubject, setSelectedSubject] = useState("");
+  const [selectedSession, setSelectedSession] = useState("");
   const [summarySubject, setSummarySubject] = useState("");
-  const [attendanceSummary, setAttendanceSummary] = useState([]);
-  const [summaryLoading, setSummaryLoading] = useState(false);
-  const [summaryError, setSummaryError] = useState("");
   const [reportData, setReportData] = useState({});
   const [reportLoading, setReportLoading] = useState(false);
 
@@ -228,30 +228,7 @@ function LecturerDashboard() {
     fetchAttendanceStudents();
   }, [selectedSession, sessions]);
 
-  
-  const fetchAttendanceSummary = async (subjectId) => {
-    if (!subjectId) {
-      setAttendanceSummary([]);
-      setSummaryError("");
-      return;
-    }
 
-    try {
-      setSummaryLoading(true);
-      setSummaryError("");
-
-      const response = await api.get(`/attendance/summary/${subjectId}`);
-      setAttendanceSummary(response.data);
-    } catch (error) {
-      setSummaryError(
-        error.response?.data?.message ||
-          "Failed to load attendance summary."
-      );
-      setAttendanceSummary([]);
-    } finally {
-      setSummaryLoading(false);
-    }
-  };
 
   const fetchReportData = async () => {
     try {
@@ -294,6 +271,7 @@ function LecturerDashboard() {
 
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileMessage, setProfileMessage] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState("");
 
   
   useEffect(() => {
@@ -483,32 +461,57 @@ function LecturerDashboard() {
                   No subjects assigned to you yet.
                 </p>
               ) : (
-                <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {subjects.map((subject) => (
-                    <div
-                      key={subject._id}
-                      className="rounded-xl border border-blue-100 bg-blue-50/50 p-5"
-                    >
-                      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
-                        <BookOpen size={22} />
-                      </div>
+                <div>
+                  <div className="mt-5 overflow-x-auto rounded-xl border border-slate-200">
+                    <table className="w-full min-w-162.5 text-left text-sm">
+                      <thead className="bg-slate-50 text-slate-700">
+                        <tr>
+                          <th className="px-5 py-4 font-semibold">#</th>
+                          <th className="px-5 py-4 font-semibold">Subject</th>
+                          <th className="px-5 py-4 font-semibold">Subject Code</th>
+                          <th className="px-5 py-4 font-semibold">Enrollment Key</th>
+                          <th className="px-5 py-4 text-center font-semibold">
+                            Enrolled Students
+                          </th>
+                        </tr>
+                      </thead>
 
-                      <h4 className="text-lg font-bold">{subject.name}</h4>
+                      <tbody className="divide-y divide-slate-100">
+                        {subjects.map((subject, index) => (
+                          <tr
+                            key={subject._id}
+                            className="transition-colors hover:bg-blue-50/50"
+                          >
+                            <td className="px-5 py-4 text-slate-500">
+                              {index + 1}
+                            </td>
 
-                      <p className="mt-1 text-sm text-slate-500">
-                        Subject Code: {subject.code}
-                      </p>
+                            <td className="px-5 py-4 font-semibold text-slate-800">
+                              {subject.name}
+                            </td>
 
-                      <div className="mt-4 border-t border-blue-100 pt-3">
-                        <p className="text-xs font-semibold text-slate-500">
-                          ENROLLMENT KEY
-                        </p>
-                        <p className="mt-1 font-mono font-bold tracking-wider text-blue-700">
-                          {subject.enrollmentKey}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                            <td className="px-5 py-4 text-slate-600">
+                              {subject.code}
+                            </td>
+
+                            <td className="px-5 py-4">
+                              <span className="rounded-md bg-blue-50 px-3 py-1 font-medium text-blue-700">
+                                {subject.enrollmentKey || "—"}
+                              </span>
+                            </td>
+
+                            <td className="px-5 py-4 text-center">
+                              <span className="inline-flex min-w-10 items-center justify-center rounded-full bg-blue-100 px-3 py-1 font-bold text-blue-700">
+                                {Array.isArray(subject.enrolledStudents)
+                                  ? subject.enrolledStudents.length
+                                  : 0}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </section>
@@ -518,154 +521,422 @@ function LecturerDashboard() {
               id="sessions"
               className="mt-6 scroll-mt-24 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm"
             >
-              <h3 className="text-xl font-extrabold">Session Management</h3>
-              <p className="mt-2 text-sm text-slate-500">
-                Create and manage your class sessions.
-              </p>
-
-              <form
-                className="mt-5 grid gap-4 sm:grid-cols-2"
-                onSubmit={async (event) => {
-                  event.preventDefault();
-                  const form = event.currentTarget;
-                  const formData = new FormData(form);
-
-                  try {
-                    await api.post("/sessions", {
-                      subjectId: formData.get("subjectId"),
-                      date: formData.get("date"),
-                      startTime: formData.get("startTime"),
-                      endTime: formData.get("endTime"),
-                      topic: formData.get("topic"),
-                    });
-
-                    form.reset();
-                    setSelectedSubject("");
-
-                    const results = await Promise.all(
-                      subjects.map((subject) =>
-                        api.get(`/sessions/subject/${subject._id}`)
-                      )
-                    );
-
-                    setSessions(results.flatMap((result) => result.data));
-                    setSessionsError("");
-                    alert("Session created successfully!");
-                  } catch (error) {
-                    alert(
-                      error.response?.data?.message || "Failed to create session."
-                    );
-                  }
-                }}
-              >
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <label className="mb-1 block text-sm font-semibold">Subject</label>
-                  <select
-                    name="subjectId"
-                    value={selectedSubject}
-                    onChange={(event) => setSelectedSubject(event.target.value)}
-                    required
-                    className="w-full rounded-xl border border-slate-200 p-3"
-                  >
-                    <option value="">Select a subject</option>
-                    {subjects.map((subject) => (
-                      <option key={subject._id} value={subject._id}>
-                        {subject.name} ({subject.code})
-                      </option>
-                    ))}
-                  </select>
+                  <h3 className="text-xl font-extrabold">
+                    {showAllSessions ? "All Sessions" : "Upcoming Sessions"}
+                  </h3>
+                  <p className="mt-2 text-sm text-slate-500">
+                    {showAllSessions
+                      ? "View all your past and upcoming class sessions."
+                      : "View and manage your upcoming classes."}
+                  </p>
                 </div>
 
-                <div>
-                  <label className="mb-1 block text-sm font-semibold">Session Topic</label>
-                  <input
-                    name="topic"
-                    required
-                    placeholder="Enter session topic"
-                    className="w-full rounded-xl border border-slate-200 p-3"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-semibold">Date</label>
-                  <input
-                    name="date"
-                    type="date"
-                    required
-                    className="w-full rounded-xl border border-slate-200 p-3"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1 block text-sm font-semibold">Start Time</label>
-                    <input
-                      name="startTime"
-                      type="time"
-                      required
-                      className="w-full rounded-xl border border-slate-200 p-3"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-semibold">End Time</label>
-                    <input
-                      name="endTime"
-                      type="time"
-                      required
-                      className="w-full rounded-xl border border-slate-200 p-3"
-                    />
-                  </div>
-                </div>
-
-                <div className="sm:col-span-2">
+                <div className="flex flex-wrap items-center gap-3">
                   <button
-                    type="submit"
-                    disabled={subjects.length === 0}
-                    className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                    type="button"
+                    onClick={() => navigate("/lecturer/sessions")}
+                    className="text-sm font-semibold text-blue-600 hover:text-blue-800"
                   >
-                    Create Session
+                    View All Sessions →
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateSessionModal(true)}
+                    className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+                  >
+                    + Create Session
                   </button>
                 </div>
-              </form>
+              </div>
 
-              <div className="mt-8 border-t border-slate-100 pt-5">
-                <h4 className="text-lg font-bold">My Sessions</h4>
+              {loadingSessions ? (
+                <p className="mt-5 text-sm text-slate-500">Loading sessions...</p>
+              ) : sessionsError ? (
+                <p className="mt-5 text-sm text-red-600">{sessionsError}</p>
+              ) : (
+                (() => {
+                  const now = new Date();
 
-                {loadingSessions ? (
-                  <p className="mt-3 text-sm text-slate-500">Loading sessions...</p>
-                ) : sessionsError ? (
-                  <p className="mt-3 text-sm text-red-600">{sessionsError}</p>
-                ) : sessions.length === 0 ? (
-                  <p className="mt-3 text-sm text-slate-500">No sessions created yet.</p>
-                ) : (
-                  <div className="mt-4 space-y-3">
-                    {sessions.map((session) => {
-                      const subject = subjects.find(
+                  const sortedSessions = [...sessions].sort(
+                    (a, b) => new Date(a.date) - new Date(b.date)
+                  );
+
+                  const displayedSessions = showAllSessions
+                    ? sortedSessions
+                    : sortedSessions.filter((session) => {
+                        const sessionEnd = new Date(session.date);
+                        const [hours, minutes] = (session.endTime || "23:59")
+                          .split(":")
+                          .map(Number);
+
+                        sessionEnd.setHours(hours, minutes, 0, 0);
+
+                        return sessionEnd > now;
+                      });
+
+                  if (displayedSessions.length === 0) {
+                    return (
+                      <p className="mt-5 rounded-xl bg-slate-50 p-5 text-sm text-slate-500">
+                        {showAllSessions
+                          ? "No sessions created yet."
+                          : "No upcoming sessions. Create a new session to get started."}
+                      </p>
+                    );
+                  }
+
+                  return (
+                    <div className="mt-5 overflow-x-auto rounded-xl border border-slate-200">
+                      <table className="w-full min-w-187.5 text-left text-sm">
+                        <thead className="bg-slate-50 text-slate-600">
+                          <tr>
+                            <th className="px-4 py-3 font-semibold">#</th>
+                            <th className="px-4 py-3 font-semibold">Subject</th>
+                            <th className="px-4 py-3 font-semibold">Date & Time</th>
+                            <th className="px-4 py-3 font-semibold">Topic</th>
+                            <th className="px-4 py-3 font-semibold">Venue</th>
+                            <th className="px-4 py-3 font-semibold">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {displayedSessions.map((session, index) => {
+                            const subject = subjects.find(
+                              (item) =>
+                                item._id ===
+                                (typeof session.subject === "object"
+                                  ? session.subject?._id
+                                  : session.subject)
+                            );
+
+                            return (
+                              <tr key={session._id} className="hover:bg-slate-50">
+                                <td className="px-4 py-4">{index + 1}</td>
+                                <td className="px-4 py-4 font-medium text-slate-800">
+                                  {subject?.code || subject?.name || "Subject"}
+                                </td>
+                                <td className="px-4 py-4 whitespace-nowrap">
+                                  <div>
+                                    {new Date(session.date).toLocaleDateString()}
+                                  </div>
+                                  <div className="mt-1 text-xs text-slate-500">
+                                    {session.startTime} – {session.endTime}
+                                  </div>
+                                </td>
+                                <td className="px-4 py-4">{session.topic || "—"}</td>
+                                <td className="px-4 py-4">{session.venue || "—"}</td>
+                                <td className="px-4 py-4">
+                                  <button
+                                    type="button"
+                                    onClick={() => setViewingSession(session)}
+                                    className="rounded-lg border border-blue-200 px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-50"
+                                  >
+                                    View
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()
+              )}
+
+              {showCreateSessionModal && (
+                <div
+                  className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4"
+                  onMouseDown={(event) => {
+                    if (event.target === event.currentTarget) {
+                      setShowCreateSessionModal(false);
+                    }
+                  }}
+                >
+                  <div className="my-auto w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl">
+                    <div className="mb-5 flex items-start justify-between">
+                      <div>
+                        <h3 className="text-xl font-extrabold text-slate-900">
+                          Create New Session
+                        </h3>
+                        <p className="mt-1 text-sm text-slate-500">
+                          Enter the details for your class session.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowCreateSessionModal(false)}
+                        className="rounded-lg px-2 py-1 text-xl text-slate-400 hover:bg-slate-100"
+                        aria-label="Close modal"
+                      >
+                        ×
+                      </button>
+                    </div>
+
+                    <form
+                      className="grid gap-4 sm:grid-cols-2"
+                      onSubmit={async (event) => {
+                        event.preventDefault();
+                        const form = event.currentTarget;
+                        const formData = new FormData(form);
+
+                        const startTime = formData.get("startTime");
+                        const endTime = formData.get("endTime");
+
+                        if (endTime <= startTime) {
+                          window.alert("End time must be later than start time.");
+                          return;
+                        }
+
+                        try {
+                          await api.post("/sessions", {
+                            subjectId: formData.get("subjectId"),
+                            date: formData.get("date"),
+                            startTime,
+                            endTime,
+                            topic: formData.get("topic"),
+                            venue: formData.get("venue"),
+                            description: formData.get("description"),
+                          });
+
+                          const results = await Promise.all(
+                            subjects.map((subject) =>
+                              api.get(`/sessions/subject/${subject._id}`)
+                            )
+                          );
+
+                          setSessions(results.flatMap((result) => result.data));
+                          setSessionsError("");
+                          setShowCreateSessionModal(false);
+                          setSelectedSubject("");
+                          form.reset();
+                        } catch (error) {
+                          window.alert(
+                            error.response?.data?.message || "Failed to create session."
+                          );
+                        }
+                      }}
+                    >
+                      <div className="sm:col-span-2">
+                        <label className="mb-1 block text-sm font-semibold">
+                          Subject <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          name="subjectId"
+                          value={selectedSubject}
+                          onChange={(event) => setSelectedSubject(event.target.value)}
+                          required
+                          className="w-full rounded-xl border border-slate-200 p-3 outline-none focus:border-blue-500"
+                        >
+                          <option value="">Select a subject</option>
+                          {subjects.map((subject) => (
+                            <option key={subject._id} value={subject._id}>
+                              {subject.code} - {subject.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-sm font-semibold">
+                          Date <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          name="date"
+                          type="date"
+                          min={new Date().toLocaleDateString("en-CA")}
+                          required
+                          className="w-full rounded-xl border border-slate-200 p-3 outline-none focus:border-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-sm font-semibold">
+                          Topic <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          name="topic"
+                          required
+                          placeholder="Enter session topic"
+                          className="w-full rounded-xl border border-slate-200 p-3 outline-none focus:border-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-sm font-semibold">
+                          Start Time <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          name="startTime"
+                          type="time"
+                          required
+                          className="w-full rounded-xl border border-slate-200 p-3 outline-none focus:border-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-sm font-semibold">
+                          End Time <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          name="endTime"
+                          type="time"
+                          required
+                          className="w-full rounded-xl border border-slate-200 p-3 outline-none focus:border-blue-500"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="mb-1 block text-sm font-semibold">
+                          Venue <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          name="venue"
+                          required
+                          placeholder="e.g. LT 1 or Electronics Laboratory"
+                          className="w-full rounded-xl border border-slate-200 p-3 outline-none focus:border-blue-500"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="mb-1 block text-sm font-semibold">
+                          Description (Optional)
+                        </label>
+                        <textarea
+                          name="description"
+                          rows={3}
+                          placeholder="Add session description..."
+                          className="w-full resize-y rounded-xl border border-slate-200 p-3 outline-none focus:border-blue-500"
+                        />
+                      </div>
+
+                      <div className="mt-2 flex flex-col-reverse gap-3 sm:col-span-2 sm:flex-row sm:justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setShowCreateSessionModal(false)}
+                          className="rounded-xl border border-slate-200 px-5 py-3 font-semibold text-slate-600 hover:bg-slate-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={subjects.length === 0}
+                          className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          Create Session
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              {viewingSession && (
+                <div
+                  className="fixed inset-0 z-60 flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4"
+                  onMouseDown={(event) => {
+                    if (event.target === event.currentTarget) {
+                      setViewingSession(null);
+                    }
+                  }}
+                >
+                  <div className="my-auto w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+                    <div className="mb-5 flex items-start justify-between border-b border-slate-100 pb-4">
+                      <div>
+                        <h3 className="text-xl font-extrabold text-slate-900">
+                          Session Details
+                        </h3>
+                        <p className="mt-1 text-sm text-slate-500">
+                          View your class session information.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setViewingSession(null)}
+                        className="rounded-lg px-2 py-1 text-xl text-slate-400 hover:bg-slate-100"
+                        aria-label="Close session details"
+                      >
+                        ×
+                      </button>
+                    </div>
+
+                    {(() => {
+                      const selectedSessionSubject = subjects.find(
                         (item) =>
                           item._id ===
-                          (typeof session.subject === "object"
-                            ? session.subject._id
-                            : session.subject)
+                          (typeof viewingSession.subject === "object"
+                            ? viewingSession.subject?._id
+                            : viewingSession.subject)
                       );
 
+                      const details = [
+                        {
+                          label: "Subject",
+                          value: selectedSessionSubject
+                            ? `${selectedSessionSubject.code} - ${selectedSessionSubject.name}`
+                            : viewingSession.subject?.name || "Subject",
+                        },
+                        {
+                          label: "Topic",
+                          value: viewingSession.topic || "Not specified",
+                        },
+                        {
+                          label: "Date",
+                          value: new Date(viewingSession.date).toLocaleDateString(),
+                        },
+                        {
+                          label: "Start Time",
+                          value: viewingSession.startTime || "Not specified",
+                        },
+                        {
+                          label: "End Time",
+                          value: viewingSession.endTime || "Not specified",
+                        },
+                        {
+                          label: "Venue",
+                          value: viewingSession.venue || "Not specified",
+                        },
+                      ];
+
                       return (
-                        <div
-                          key={session._id}
-                          className="rounded-xl border border-slate-200 p-4"
-                        >
-                          <h5 className="font-bold">{session.topic}</h5>
-                          <p className="mt-1 text-sm text-slate-500">
-                            {subject?.name || "Subject"} · {String(session.date).slice(0, 10)}
-                          </p>
-                          <p className="mt-1 text-sm text-slate-600">
-                            {session.startTime} – {session.endTime}
-                          </p>
+                        <div className="space-y-4">
+                          {details.map((detail) => (
+                            <div key={detail.label}>
+                              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                {detail.label}
+                              </p>
+                              <p className="text-sm font-medium text-slate-800">
+                                {detail.value}
+                              </p>
+                            </div>
+                          ))}
+
+                          <div>
+                            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                              Description
+                            </p>
+                            <p className="whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-sm leading-6 text-slate-600">
+                              {viewingSession.description || "No description provided."}
+                            </p>
+                          </div>
                         </div>
                       );
-                    })}
+                    })()}
+
+                    <div className="mt-6 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setViewingSession(null)}
+                        className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+                      >
+                        Close
+                      </button>
+                    </div>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </section>
 
             
@@ -684,114 +955,44 @@ function LecturerDashboard() {
                 </label>
                 <select
                   value={selectedSession}
-                  onChange={(event) => setSelectedSession(event.target.value)}
+                  onChange={(event) => {
+                    const sessionId = event.target.value;
+
+                    if (sessionId) {
+                      navigate(`/lecturer/mark-attendance?sessionId=${sessionId}`);
+                    }
+                  }}
                   className="w-full rounded-xl border border-slate-200 p-3"
                 >
                   <option value="">Choose a session</option>
-                  {sessions.map((session) => {
-                    const subjectId =
-                      typeof session.subject === "object"
-                        ? session.subject?._id
-                        : session.subject;
-                    const subject = subjects.find((item) => item._id === subjectId);
+                  {sessions
+                    .filter((session) => {
+                      const sessionDate = new Date(session.date);
+                      const [hours, minutes] = (session.endTime || "23:59")
+                        .split(":")
+                        .map(Number);
 
-                    return (
-                      <option key={session._id} value={session._id}>
-                        {session.topic} — {subject?.name || "Subject"}
-                      </option>
-                    );
-                  })}
+                      sessionDate.setHours(hours, minutes, 0, 0);
+
+                      return sessionDate >= new Date();
+                    })
+                    .map((session) => {
+                      const subjectId =
+                        typeof session.subject === "object"
+                          ? session.subject?._id
+                          : session.subject;
+
+                      const subject = subjects.find((item) => item._id === subjectId);
+
+                      return (
+                        <option key={session._id} value={session._id}>
+                          {session.topic} — {subject?.name || "Subject"} (
+                          {new Date(session.date).toLocaleDateString()} · {session.startTime})
+                        </option>
+                      );
+                    })}
                 </select>
               </div>
-
-              {attendanceLoading && (
-                <p className="mt-4 text-sm text-slate-500">Loading students...</p>
-              )}
-
-              {attendanceError && (
-                <p className="mt-4 text-sm text-red-600">{attendanceError}</p>
-              )}
-
-              {attendanceMessage && (
-                <p className="mt-4 text-sm text-green-700">{attendanceMessage}</p>
-              )}
-
-              {selectedSession && !attendanceLoading && !attendanceError && (
-                <>
-                  {attendanceStudents.length === 0 ? (
-                    <p className="mt-4 text-sm text-slate-500">
-                      No enrolled students found for this subject.
-                    </p>
-                  ) : (
-                    <div className="mt-5 space-y-3">
-                      {attendanceStudents.map((student) => (
-                        <div
-                          key={student.studentId}
-                          className="flex flex-col gap-3 rounded-xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between"
-                        >
-                          <div>
-                            <p className="font-semibold">{student.name}</p>
-                            <p className="text-sm text-slate-500">{student.email}</p>
-                          </div>
-
-                          <select
-                            value={student.status}
-                            onChange={(event) => {
-                              setAttendanceStudents((current) =>
-                                current.map((item) =>
-                                  item.studentId === student.studentId
-                                    ? { ...item, status: event.target.value }
-                                    : item
-                                )
-                              );
-                              setAttendanceMessage("");
-                            }}
-                            className="rounded-lg border border-slate-200 p-2"
-                          >
-                            <option value="present">Present</option>
-                            <option value="absent">Absent</option>
-                            <option value="late">Late</option>
-                          </select>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {attendanceStudents.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          setAttendanceError("");
-                          setAttendanceMessage("");
-
-                          const response = await api.post(
-                            `/attendance/${selectedSession}`,
-                            {
-                              attendanceData: attendanceStudents.map((student) => ({
-                                studentId: student.studentId,
-                                status: student.status,
-                              })),
-                            }
-                          );
-
-                          setAttendanceMessage(
-                            response.data.message || "Attendance saved successfully."
-                          );
-                        } catch (error) {
-                          setAttendanceError(
-                            error.response?.data?.message ||
-                              "Failed to save attendance."
-                          );
-                        }
-                      }}
-                      className="mt-5 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700"
-                    >
-                      Save Attendance
-                    </button>
-                  )}
-                </>
-              )}
             </section>
 
 
@@ -799,7 +1000,7 @@ function LecturerDashboard() {
               id="summary"
               className="mt-6 scroll-mt-24 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm"
             >
-              <h3 className="text-xl font-extrabold">Attendance Summary</h3>
+              <h3 className="text-xl font-extrabold">Individual Student Attendance</h3>
               <p className="mt-2 text-sm text-slate-500">
                 Select a subject to review student attendance.
               </p>
@@ -813,11 +1014,15 @@ function LecturerDashboard() {
                   onChange={(event) => {
                     const subjectId = event.target.value;
                     setSummarySubject(subjectId);
-                    fetchAttendanceSummary(subjectId);
+
+                    if (subjectId) {
+                      navigate(`/lecturer/student-attendance/${subjectId}`);
+                    }
                   }}
                   className="w-full rounded-xl border border-slate-200 p-3"
                 >
                   <option value="">Choose a subject</option>
+
                   {subjects.map((subject) => (
                     <option key={subject._id} value={subject._id}>
                       {subject.name} ({subject.code})
@@ -825,136 +1030,13 @@ function LecturerDashboard() {
                   ))}
                 </select>
               </div>
-
-              {summaryLoading && (
-                <p className="mt-5 text-sm text-slate-500">
-                  Loading attendance summary...
-                </p>
-              )}
-
-              {summaryError && (
-                <p className="mt-5 text-sm text-red-600">{summaryError}</p>
-              )}
-
-              {!summaryLoading && !summaryError && summarySubject && (
-                <div className="mt-5 overflow-x-auto">
-                  {attendanceSummary.length === 0 ? (
-                    <p className="py-6 text-sm text-slate-500">
-                      No attendance summary available for this subject yet.
-                    </p>
-                  ) : (
-                    <>
-                    {attendanceSummary.some(
-                      (student) =>
-                        Number(
-                          student.percentage ??
-                          student.attendancePercentage ??
-                          0
-                        ) < 80
-                    ) && (
-                      <div className="mb-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
-                        <div className="text-xl">⚠️</div>
-
-                        <div>
-                          <h4 className="font-semibold text-red-800">
-                            Low Attendance Alert
-                          </h4>
-
-                          <p className="mt-1 text-sm text-red-700">
-                            {attendanceSummary.filter(
-                              (student) =>
-                                Number(
-                                  student.percentage ??
-                                  student.attendancePercentage ??
-                                  0
-                                ) < 80
-                            ).length}{" "}
-                            student(s) have attendance below 80%.
-                            Please review their attendance records.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                    <table className="w-full min-w-162.5 text-left text-sm">
-                      <thead className="bg-blue-50 text-xs text-slate-700">
-                        <tr>
-                          <th className="px-3 py-3">#</th>
-                          <th className="px-3 py-3">Student</th>
-                          <th className="px-3 py-3">Student ID</th>
-                          <th className="px-3 py-3">Present</th>
-                          <th className="px-3 py-3">Absent</th>
-                          <th className="px-3 py-3">Late</th>
-                          <th className="px-3 py-3">Attendance</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {attendanceSummary.map((student, index) => {
-                          const isLowAttendance =
-                            Number(
-                              student.percentage ??
-                              student.attendancePercentage ??
-                              0
-                            ) < 80;
-
-                          return (
-                            <tr
-                              key={student.studentId || student._id || index}
-                              className="border-b border-blue-50"
-                            >
-                              <td className="px-3 py-4">{index + 1}</td>
-
-                              <td className="px-3 py-4">
-                                {student.name || student.student?.name || "—"}
-                              </td>
-
-                              <td className="px-3 py-4">
-                                {student.studentId ||
-                                  student.student?.studentId ||
-                                  "—"}
-                              </td>
-
-                              <td className="px-3 py-4">
-                                {student.presentCount ?? student.present ?? 0}
-                              </td>
-
-                              <td className="px-3 py-4">
-                                {student.absentCount ?? student.absent ?? 0}
-                              </td>
-
-                              <td className="px-3 py-4">
-                                {student.lateCount ?? student.late ?? 0}
-                              </td>
-
-                              <td className="px-3 py-4">
-                                <span
-                                  className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                                    isLowAttendance
-                                      ? "bg-red-100 text-red-700"
-                                      : "bg-green-100 text-green-700"
-                                  }`}
-                                >
-                                  {student.percentage ??
-                                    student.attendancePercentage ??
-                                    0}
-                                  %
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                    </>
-                  )}
-                </div>
-              )}
             </section>
             
             <section
               id="reports"
               className="mt-6 scroll-mt-24 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm"
             >
-              <h3 className="text-xl font-extrabold">Attendance Reports</h3>
+              <h3 className="text-xl font-extrabold">Subject-wise Attendance Reports</h3>
               <p className="mt-2 text-sm text-slate-500">
                 View attendance statistics for your subjects.
               </p>
@@ -1076,18 +1158,7 @@ function LecturerDashboard() {
                 </p>
               ) : (
                 <>         
-                  {profileMessage && (
-                    <p
-                      className={`mb-4 rounded-lg p-3 text-sm ${
-                        profileMessage.toLowerCase().includes("success")
-                          ? "bg-green-50 text-green-700"
-                          : "bg-red-50 text-red-600"
-                      }`}
-                      role="status"
-                    >
-                      {profileMessage}
-                    </p>
-                  )}
+  
                   <form
                     onSubmit={async (e) => {
                       e.preventDefault();
@@ -1111,7 +1182,7 @@ function LecturerDashboard() {
                         );
                       }
                     }}
-                    className="max-w-2xl space-y-5"
+                    className="grid max-w-4xl grid-cols-1 gap-x-5 gap-y-5 sm:grid-cols-2"
                   >
                     <div>
                       <label className="mb-2 block text-sm font-semibold text-slate-700">
@@ -1143,19 +1214,19 @@ function LecturerDashboard() {
                       />
                     </div>
 
-                    <div>
-                      <label className="mb-2 block text-sm font-semibold text-slate-700">
-                        Lecturer ID
-                      </label>
-                      <input
-                        type="text"
-                        value={profile.lecturerId || "Not assigned"}
-                        readOnly
-                        className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500"
-                      />
-                    </div>
+                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:col-span-2">
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-slate-700">
+                          Lecturer ID
+                        </label>
+                        <input
+                          type="text"
+                          value={profile.lecturerId || "Not assigned"}
+                          readOnly
+                          className="w-full cursor-not-allowed rounded-xl border border-blue-100 bg-slate-50 px-4 py-3 text-sm text-slate-500"
+                        />
+                      </div>
 
-                    <div className="grid gap-5 sm:grid-cols-2">
                       <div>
                         <label className="mb-2 block text-sm font-semibold text-slate-700">
                           Role
@@ -1164,29 +1235,31 @@ function LecturerDashboard() {
                           type="text"
                           value={profile.role || "Lecturer"}
                           readOnly
-                          className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="mb-2 block text-sm font-semibold text-slate-700">
-                          Account Status
-                        </label>
-                        <input
-                          type="text"
-                          value={profile.approvalStatus || "Unknown"}
-                          readOnly
-                          className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm capitalize text-slate-500"
+                          className="w-full cursor-not-allowed rounded-xl border border-blue-100 bg-slate-50 px-4 py-3 text-sm text-slate-500"
                         />
                       </div>
                     </div>
 
-                    <button
-                      type="submit"
-                      className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                    >
-                      Save Changes
-                    </button>
+                    <div className="sm:col-span-2">
+                      {profileMessage && (
+                        <p
+                          className={`mb-4 text-sm font-medium ${
+                            profileMessage.toLowerCase().includes("success")
+                              ? "text-green-600"
+                              : "text-red-600"
+                          }`}
+                          role="status"
+                        >
+                          {profileMessage}
+                        </p>
+                      )}
+                      <button
+                        type="submit"
+                        className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                      >
+                        Save Changes
+                      </button>
+                    </div>
                   </form>               
                   <div className="mt-8 border-t border-slate-100 pt-6">
                     <h4 className="text-lg font-bold text-slate-800">
@@ -1199,10 +1272,10 @@ function LecturerDashboard() {
                     <form
                       onSubmit={async (e) => {
                         e.preventDefault();
-                        setProfileMessage("");
+                        setPasswordMessage("");
 
                         if (newPassword !== confirmPassword) {
-                          setProfileMessage("New passwords do not match.");
+                          setPasswordMessage("New passwords do not match.");
                           return;
                         }
 
@@ -1212,7 +1285,7 @@ function LecturerDashboard() {
                             newPassword,
                           });
 
-                          setProfileMessage(
+                          setPasswordMessage(
                             response.data.message || "Password changed successfully."
                           );
 
@@ -1220,7 +1293,7 @@ function LecturerDashboard() {
                           setNewPassword("");
                           setConfirmPassword("");
                         } catch (error) {
-                          setProfileMessage(
+                          setPasswordMessage(
                             error.response?.data?.message ||
                               "Failed to change password."
                           );
@@ -1271,6 +1344,19 @@ function LecturerDashboard() {
                           className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                         />
                       </div>
+
+                      {passwordMessage && (
+                        <p
+                          className={`text-sm font-medium ${
+                            passwordMessage.toLowerCase().includes("success")
+                              ? "text-green-600"
+                              : "text-red-600"
+                          }`}
+                          role="status"
+                        >
+                          {passwordMessage}
+                        </p>
+                      )}
 
                       <button
                         type="submit"
