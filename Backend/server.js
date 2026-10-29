@@ -27,6 +27,9 @@ app.use('/api/attendance', attendanceRoutes);
 const adminRoutes = require('./routes/admin');
 app.use('/api/admin', adminRoutes);
 
+const adminAttendanceRoutes = require("./routes/adminAttendance");
+app.use("/api/admin/attendance", adminAttendanceRoutes);
+
 app.get('/', (req, res) => {
   res.send('Attendance Tracker API is running...');
 });

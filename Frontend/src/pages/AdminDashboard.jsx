@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Users, ClipboardCheck, BookOpen,
   UserRoundCog, BarChart3, Settings, LogOut, Bell, Search,
   Plus, RefreshCw, CheckCircle, XCircle, Pencil, Trash2, Eye,
-  Menu, X, CalendarDays, TrendingUp, ChevronDown, LoaderCircle
+  Menu, X, CalendarDays, TrendingUp, ChevronDown, LoaderCircle, ChartNoAxesColumn
 } from "lucide-react";
 
 import logo from "../assets/Logo-GraduationCap.png";
@@ -42,6 +42,10 @@ function AdminDashboard() {
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [form, setForm] = useState({ name: "", code: "", lecturerId: "" });
 
+  const [attendanceOverview, setAttendanceOverview] = useState(null);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [attendanceError, setAttendanceError] = useState("");
+
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
@@ -77,6 +81,22 @@ function AdminDashboard() {
       setError(err.response?.data?.message || "Could not load dashboard data.");
     } finally {
       setLoading(false);
+    }
+
+    try {
+      const attendanceRes = await api.get(
+        "/admin/attendance/overview",
+        authConfig()
+      );
+
+      setAttendanceOverview(attendanceRes.data);
+      setAttendanceError("");
+    } catch (err) {
+      setAttendanceError(
+        err.response?.data?.message ||
+          "Could not load attendance analytics."
+      );
+      setAttendanceOverview(null);
     }
   };
 
@@ -196,18 +216,8 @@ function AdminDashboard() {
   };
 
   const deleteSubject = async (subject) => {
-    if (!window.confirm(`Delete "${subject.name}"? This cannot be undone.`)) return;
-
-    setError("");
-    setMessage("");
-
-    try {
-      const response = await api.delete(`/subjects/${subject._id}`, authConfig());
-      setSubjects((current) => current.filter((item) => item._id !== subject._id));
-      setMessage(response.data.message || "Subject deleted successfully.");
-    } catch (err) {
-      setError(err.response?.data?.message || "Could not delete subject.");
-    }
+    setSelectedSubject(subject);
+    setModal("delete");
   };
 
   const filteredSubjects = subjects.filter((subject) =>
@@ -216,6 +226,7 @@ function AdminDashboard() {
       .includes(search.toLowerCase())
   );
 
+ 
   const filteredUsers = allUsers.filter((user) =>
     `${user.name || ""} ${user.email || ""} ${user.role || ""} ${
       user.studentId || ""
@@ -224,14 +235,20 @@ function AdminDashboard() {
       .includes(userSearch.toLowerCase())
   );
 
+  const recentUsers = [...filteredUsers]
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+    )
+    .slice(0, 5);
+
+
   const navItems = [
     { label: "Dashboard", icon: LayoutDashboard, target: "dashboard" },
-    { label: "User Management", icon: Users, target: "user-management" },
     { label: "Account Approvals", icon: ClipboardCheck, target: "registrations", count: users.length },
+    { label: "User Management", icon: Users, target: "user-management" },
+    { label: "Attendance Overview", icon: BarChart3, target: "attendance-overview" },
     { label: "Subjects", icon: BookOpen, target: "subjects" },
-    { label: "Lecturer Assignment", icon: UserRoundCog, target: "subjects" },
-    { label: "Reports", icon: BarChart3, target: "overview" },
-    { label: "Settings", icon: Settings, target: "dashboard" },
   ];
 
   const scrollTo = (target) => {
@@ -460,7 +477,7 @@ function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {users.map((user, index) => (
+                     {users.map((user, index) => ( 
                         <tr key={user._id} className="border-t border-slate-100 hover:bg-blue-50/40">
                           <td className="px-4 py-3 text-slate-500">{index + 1}</td>
                           <td className="px-4 py-3 font-medium">{user.name}</td>
@@ -518,19 +535,30 @@ function AdminDashboard() {
                       </p>
                     </div>
                 </div>
+                                              
+                <div className="flex w-full items-center gap-3 sm:w-auto">
+                  <button
+                    onClick={() => navigate("/admin/users")}
+                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-blue-700 transition"
+                  >
+                    View All
+                    <span aria-hidden="true">→</span>
+                  </button>
 
-                <div className="relative w-full sm:w-72">
-                  <Search
-                    size={16}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
-                  <input
-                    value={userSearch}
-                    onChange={(e) => setUserSearch(e.target.value)}
-                    placeholder="Search name, email, role, or ID..."
-                    className="w-full rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  />
+                  <div className="relative w-full sm:w-72">
+                    <Search
+                      size={16}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+                    <input
+                      value={userSearch}
+                      onChange={(e) => setUserSearch(e.target.value)}
+                      placeholder="Search name, email, role, or ID..."
+                      className="w-full rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </div>
                 </div>
+
               </div>
 
               {loading ? (
@@ -569,7 +597,7 @@ function AdminDashboard() {
                     </thead>
 
                     <tbody>
-                      {filteredUsers.map((user, index) => (
+                      {recentUsers.map((user, index) => (
                         <tr
                           key={user._id}
                           className="border-t border-slate-100 hover:bg-blue-50/40"
@@ -633,64 +661,126 @@ function AdminDashboard() {
               )}
 
               <div className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500">
-                Showing {filteredUsers.length} of {allUsers.length} registered users
+                Showing {recentUsers.length} of {allUsers.length} registered users
               </div>
             </section>
 
 
 
             {/* Overview panel */}
-            <section id="overview" className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
-              <div className={`${cardClass} p-5`}>
-                <div className="mb-5 flex items-center gap-3">
-                  <BarChart3 size={25} className="text-blue-600" />
-                  <div>
-                    <h3 className="text-lg font-extrabold">Attendance Overview</h3>
-                    <p className="text-xs text-slate-500">Attendance reports will appear here.</p>
-                  </div>
-                </div>
-                <div className="flex min-h-44 flex-col items-center justify-center rounded-xl border border-dashed border-blue-200 bg-blue-50/50 p-6 text-center">
-                  <CalendarDays size={35} className="mb-3 text-blue-500" />
-                  <p className="font-semibold text-slate-700">Attendance analytics</p>
-                  <p className="mt-1 max-w-sm text-sm text-slate-500">
-                    Real attendance percentages can be displayed after attendance records are connected to this dashboard.
+            <section
+              id="attendance-overview"
+              className={`${cardClass} mb-6 scroll-mt-24 overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-shadow duration-200 hover:shadow-md sm:p-6`}
+            >
+              <div className="mb-5 flex items-center gap-3">
+                <ChartNoAxesColumn className="h-6 w-6 text-blue-600" />
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">
+                    Attendance Overview
+                  </h2>
+                  <p className="text-sm text-slate-500">
+                    Attendance statistics across all subjects.
                   </p>
                 </div>
               </div>
 
+              {attendanceLoading ? (
+                <p className="py-8 text-center text-slate-500">
+                  Loading attendance analytics...
+                </p>
+              ) : attendanceError ? (
+                <p className="rounded-lg bg-red-50 p-4 text-sm text-red-600">
+                  {attendanceError}
+                </p>
+              ) : attendanceOverview ? (
+                <>
 
-              <div className={`${cardClass} p-5`}>
-                <div className="mb-5 flex items-center gap-3">
-                  <TrendingUp size={25} className="text-emerald-600" />
-                  <div className="flex w-full flex-wrap items-center justify-between gap-3">
-                    <h3 className="text-lg font-extrabold">System Overview</h3>
-                      <button
-                        onClick={() => {
-                          setAdminForm({ name: "", email: "", password: "" });
-                          setError("");
-                          setModal("admin");
-                        }}
-                        className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                      >
-                        <Plus size={17} />
-                        Add Admin
-                     </button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  {[
-                    { label: "Pending Requests", value: users.length, icon: ClipboardCheck },
-                    { label: "Total Users", value: totalUsers, icon: Users },
-                    { label: "Subjects", value: subjects.length, icon: BookOpen },
-                  ].map(({ label, value, icon: Icon }) => (
-                    <div key={label} className="rounded-xl bg-slate-50 p-4">
-                      <Icon size={22} className="mb-3 text-blue-600" />
-                      <p className="text-2xl font-extrabold">{loading ? "—" : value}</p>
-                      <p className="mt-1 text-xs text-slate-500">{label}</p>
+                  <div className="mt-5 rounded-xl border border-slate-200 p-4">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="font-semibold text-slate-800">
+                        Overall Attendance Rate
+                      </span>
+                      <span className="font-bold text-blue-700">
+                        {attendanceOverview.attendanceRate}%
+                      </span>
                     </div>
-                  ))}
-                </div>
-              </div>
+
+                    <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full bg-blue-600 transition-all"
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            Math.max(0, attendanceOverview.attendanceRate || 0)
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-5">
+                    <h3 className="mb-3 font-semibold text-slate-800">
+                      Subject-wise Attendance
+                    </h3>
+
+                    {attendanceOverview.subjectStats?.length > 0 ? (
+                      <div className="overflow-x-auto rounded-xl border border-slate-200">
+                        <table className="w-full text-left text-sm">
+                          <thead className="bg-slate-50 text-slate-600">
+                            <tr>
+                              <th className="px-4 py-3">Subject</th>
+                              <th className="px-4 py-3">Code</th>
+                              <th className="px-4 py-3">Records</th>
+                              <th className="px-4 py-3">Attendance</th>
+                            </tr>
+                          </thead>
+
+                          <tbody className="divide-y divide-slate-100">
+                            {attendanceOverview.subjectStats.map((subject) => (
+                              <tr key={subject.subjectId}>
+                                <td className="px-4 py-3 font-medium text-slate-800">
+                                  {subject.subjectName}
+                                </td>
+                                <td className="px-4 py-3 text-slate-600">
+                                  {subject.subjectCode}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {subject.totalRecords}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {subject.attendanceRate === null ? (
+                                    <span className="text-slate-400">
+                                      No records
+                                    </span>
+                                  ) : (
+                                    <span
+                                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                        subject.attendanceRate >= 80
+                                          ? "bg-green-100 text-green-700"
+                                          : "bg-red-100 text-red-700"
+                                      }`}
+                                    >
+                                      {subject.attendanceRate}%
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
+                        No subjects available.
+                      </p>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <p className="py-8 text-center text-slate-500">
+                  No attendance analytics available yet.
+                </p>
+              )}
             </section>
 
 
@@ -711,6 +801,13 @@ function AdminDashboard() {
                       className="w-full rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                     />
                   </div>
+                  <button
+                    onClick={() => navigate("/admin/subjects")}
+                    className="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-blue-700"
+                  >
+                    View All
+                    <span aria-hidden="true">→</span>
+                  </button>
                   <button
                     onClick={openCreate}
                     className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
@@ -743,7 +840,7 @@ function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredSubjects.map((subject, index) => (
+                      {subjects.slice(0, 3).map((subject, index) => (
                         <tr key={subject._id} className="border-t border-slate-100 hover:bg-blue-50/40">
                           <td className="px-4 py-3 text-slate-500">{index + 1}</td>
                           <td className="px-4 py-3 font-semibold text-blue-700">{subject.code}</td>
@@ -1021,6 +1118,107 @@ function AdminDashboard() {
           </div>
         </div>
       )}
+      
+      {/* Delete Subject Confirmation Modal */}
+      {modal === "delete" && selectedSubject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-slate-100 bg-white p-6 shadow-2xl">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-red-50">
+                <Trash2 size={23} className="text-red-600" />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <h3 className="text-lg font-bold text-slate-900">
+                  Delete Subject?
+                </h3>
+
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Are you sure you want to delete{" "}
+                  <span className="font-semibold text-slate-900">
+                    {selectedSubject.name}
+                  </span>
+                  ? This action cannot be undone.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setModal("")}
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Close confirmation"
+              >
+                <X size={19} />
+              </button>
+            </div>
+
+            {error && (
+              <p className="mt-4 rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-600">
+                {error}
+              </p>
+            )}
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setModal("");
+                  setSelectedSubject(null);
+                  setError("");
+                }}
+                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  await (async () => {
+                    try {
+                      setSubjectLoading(true);
+                      setError("");
+
+                      const response = await api.delete(
+                        `/subjects/${selectedSubject._id}`,
+                        authConfig()
+                      );
+
+                      setSubjects((current) =>
+                        current.filter(
+                          (item) => item._id !== selectedSubject._id
+                        )
+                      );
+
+                      setMessage(
+                        response.data.message ||
+                          "Subject deleted successfully."
+                      );
+                      setModal("");
+                      setSelectedSubject(null);
+                    } catch (err) {
+                      setError(
+                        err.response?.data?.message ||
+                          "Could not delete subject."
+                      );
+                    } finally {
+                      setSubjectLoading(false);
+                    }
+                  })();
+                }}
+                disabled={subjectLoading}
+                className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {subjectLoading && (
+                  <LoaderCircle size={16} className="animate-spin" />
+                )}
+                {subjectLoading ? "Deleting..." : "Delete Subject"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

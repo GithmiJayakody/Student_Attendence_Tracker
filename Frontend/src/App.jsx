@@ -9,6 +9,8 @@ import StudentDashboard from "./pages/StudentDashboard";
 import AllSessions from "./pages/AllSessions";
 import MarkAttendance from "./pages/MarkAttendance";
 import IndividualStudentAttendance from "./pages/IndividualStudentAttendance";
+import AllUsers from "./pages/AllUsers";
+import AllSubjects from "./pages/AllSubjects";
 
 function App() {
   return (
@@ -19,6 +21,8 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin/users" element={<AllUsers />} />
+        <Route path="/admin/subjects" element={<AllSubjects />} />
         <Route path="/lecturer" element={<LecturerDashboard />} />
         <Route path="/student" element={<StudentDashboard />} />
         <Route path="/lecturer/sessions" element={<AllSessions />} />
