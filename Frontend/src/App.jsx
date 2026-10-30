@@ -11,6 +11,8 @@ import MarkAttendance from "./pages/MarkAttendance";
 import IndividualStudentAttendance from "./pages/IndividualStudentAttendance";
 import AllUsers from "./pages/AllUsers";
 import AllSubjects from "./pages/AllSubjects";
+import AllMySubjects from "./pages/AllMySubjects";
+import SubjectAttendanceHistory from "./pages/SubjectAttendanceHistory";
 
 function App() {
   return (
@@ -28,6 +30,8 @@ function App() {
         <Route path="/lecturer/sessions" element={<AllSessions />} />
         <Route path="/lecturer/mark-attendance" element={<MarkAttendance />} />
         <Route path="/lecturer/student-attendance/:subjectId" element={<IndividualStudentAttendance />} />
+        <Route path="/student/subjects" element={<AllMySubjects />}/>
+        <Route path="/student/attendance/:subjectId" element={<SubjectAttendanceHistory />}/>
 
       </Routes>
     </BrowserRouter>

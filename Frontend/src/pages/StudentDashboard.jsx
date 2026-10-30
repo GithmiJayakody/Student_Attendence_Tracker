@@ -7,7 +7,7 @@ import {
   BookOpen,
   PlusCircle,
   CalendarDays,
-  ClipboardList,
+  ClipboardCheck,
   ChartNoAxesColumn,
   UserRound,
   LogOut,
@@ -18,6 +18,7 @@ import {
   TriangleAlert,
   Clock3,
   ArrowRight,
+  ChevronDown,
 } from "lucide-react";
 
 import logo from "../assets/Logo-GraduationCap.png";
@@ -44,6 +45,9 @@ function StudentDashboard() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState("");
+
+  const [selectedAttendanceSubject, setSelectedAttendanceSubject] =
+    useState("");
 
   const [attendanceSummary, setAttendanceSummary] = useState({
     present: 0,
@@ -110,10 +114,11 @@ function StudentDashboard() {
           api.get(`/attendance/my/${subject._id}`)
         )
       );
-
+   
       const records = results.flatMap((result, index) =>
         result.data.attendance.map((record) => ({
           ...record,
+          subjectId: mySubjects[index]._id,
           subjectName: mySubjects[index].name,
           subjectCode: mySubjects[index].code,
         }))
@@ -209,7 +214,7 @@ function StudentDashboard() {
     { label: "My Subjects", icon: BookOpen, id: "subjects" },
     { label: "Join Subject", icon: PlusCircle, id: "join-subject" },
     { label: "Class Sessions", icon: CalendarDays, id: "sessions" },
-    { label: "Attendance History", icon: ClipboardList, id: "history" },
+    { label: "Attendance History", icon: ClipboardCheck, id: "history" },
     { label: "Attendance Summary", icon: ChartNoAxesColumn, id: "summary" },
     { label: "Profile", icon: UserRound, id: "profile" },
   ];
@@ -229,6 +234,16 @@ function StudentDashboard() {
   };
 
   const totalSessions = sessions.length;
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const upcomingSessions = sessions.filter((session) => {
+    const sessionDate = new Date(session.date);
+    sessionDate.setHours(0, 0, 0, 0);
+
+    return sessionDate >= today;
+  });
 
   const attendedSessions = attendanceRecords.filter((record) => {
     const status = record.status?.toLowerCase();
@@ -406,13 +421,6 @@ function StudentDashboard() {
           </Link>
         </div>
         <div className="flex items-center gap-4 md:gap-6">
-          <button
-            aria-label="Notifications"
-            className="relative rounded-full p-2 text-slate-500 transition hover:bg-blue-50"
-          >
-            <Bell size={21} />
-            <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
-          </button>
 
           <div className="border-l border-slate-200 pl-4 text-right">
             <p className="text-sm font-bold text-[#101b50]">
@@ -435,7 +443,7 @@ function StudentDashboard() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed bottom-0 left-0 top-16 z-30 flex w-60 flex-col border-r border-blue-100 bg-white px-4 py-5 transition-transform lg:translate-x-0 ${
+        className={`fixed bottom-0 left-0 top-16 z-30 flex w-80 flex-col border-r border-blue-100 bg-white px-4 py-5 transition-transform lg:translate-x-0 ${
           mobileMenu ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -482,7 +490,7 @@ function StudentDashboard() {
       </aside>
 
       {/* Main content */}
-      <main className="px-4 pb-10 pt-22.5 lg:ml-60 lg:px-6">
+      <main className="px-4 pb-10 pt-22.5 lg:ml-80 lg:px-6">
         <section id="dashboard" className="mb-7 scroll-mt-24">
           <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-blue-600">
             ━ Welcome back{user.name ? `, ${user.name}` : ""}
@@ -537,12 +545,23 @@ function StudentDashboard() {
               <BookOpen className="text-blue-600" />
               My Subjects
             </h2>
-            <button
-              onClick={() => scrollToSection("join-subject")}
-              className="flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-800"
-            >
-              Join Subject <ArrowRight size={16} />
-            </button>
+            
+            <div className="flex shrink-0 items-center gap-3">
+              <button
+                onClick={() => navigate("/student/subjects")}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-blue-600 hover:text-blue-800"
+              >
+                View All <ArrowRight size={16} />
+              </button>
+
+              <button
+                onClick={() => scrollToSection("join-subject")}
+                className="flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-800"
+              >
+                Join Subject <ArrowRight size={16} />
+              </button>
+            </div>
+
           </div>
 
           <div className="overflow-x-auto">
@@ -576,7 +595,7 @@ function StudentDashboard() {
                     </td>
                   </tr>
                 ) : (
-                  subjects.map((subject,index) => (
+                  subjects.slice(0, 5).map((subject,index) => (
                     <tr key={subject._id} className="border-b border-blue-50">
                       <td className="px-3 py-4">
                         {index + 1}
@@ -661,7 +680,7 @@ function StudentDashboard() {
             <button
                 type="submit"
                 disabled={enrollmentLoading}
-                className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700"            
+                className="rounded-xl bg-blue-600 px-6 py-3 text-md font-semibold text-white transition hover:bg-blue-700"            
             >
                 {enrollmentLoading ? "Joining..." : "Join Subject"}
             </button>
@@ -687,7 +706,7 @@ function StudentDashboard() {
         >
           <h2 className="mb-4 flex items-center gap-3 text-lg font-extrabold sm:text-xl">
             <CalendarDays className="text-blue-600" />
-            Class Sessions
+            Upcoming Sessions
           </h2>
 
           {loadingSessions ? (
@@ -698,10 +717,11 @@ function StudentDashboard() {
             <p className="py-6 text-center text-red-500">
               {sessionsError}
             </p>
-          ) : sessions.length === 0 ? (
+          ) : upcomingSessions.length === 0 ? (
             <p className="py-6 text-center text-slate-500">
-              No class sessions available for your enrolled subjects.
+              No upcoming sessions available for your enrolled subjects.
             </p>
+
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-162.5 text-left text-sm">
@@ -715,7 +735,7 @@ function StudentDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sessions.map((session, index) => (
+                  {upcomingSessions.map((session, index) => (
                     <tr key={session._id} className="border-b border-blue-50">
                       <td className="px-3 py-4">{index + 1}</td>
                       <td className="px-3 py-4">
@@ -740,80 +760,45 @@ function StudentDashboard() {
         <section
           id="history"
           className="mb-6 scroll-mt-24 rounded-2xl border border-white bg-white p-5 shadow-sm sm:p-6"
-        >
-          
-          <h2 className="mb-4 flex items-center gap-3 text-lg font-extrabold sm:text-xl">
-            <ClipboardList className="text-blue-600" />
-            Attendance History
-          </h2>
-
-          {loadingAttendance ? (
-            <p className="py-6 text-center text-slate-500">
-              Loading attendance history...
-            </p>
-          ) : attendanceError ? (
-            <p className="py-6 text-center text-red-500">
-              {attendanceError}
-            </p>
-          ) : attendanceRecords.length === 0 ? (
-            <p className="py-6 text-center text-slate-500">
-              No attendance records available yet.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-150 text-left text-sm">
-                <thead className="bg-blue-50 text-xs text-[#24447c]">
-                  <tr>
-                    <th className="px-3 py-3">#</th>
-                    <th className="px-3 py-3">Subject</th>
-                    <th className="px-3 py-3">Date</th>
-                    <th className="px-3 py-3">Topic</th>
-                    <th className="px-3 py-3">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {attendanceRecords.map((record, index) => {
-                    const status = record.status?.toLowerCase();
-
-                    const statusStyles = {
-                      present: "bg-green-100 text-green-700",
-                      absent: "bg-red-100 text-red-700",
-                      late: "bg-orange-100 text-orange-700",
-                    };
-
-                    return (
-                      <tr
-                        key={record._id}
-                        className="border-b border-blue-50"
-                      >
-                        <td className="px-3 py-4">{index + 1}</td>
-                        <td className="px-3 py-4">
-                          {record.subjectCode} - {record.subjectName}
-                        </td>
-                        <td className="px-3 py-4">
-                          {record.session?.date
-                            ? new Date(record.session.date).toLocaleDateString()
-                            : "—"}
-                        </td>
-                        <td className="px-3 py-4">
-                          {record.session?.topic || "—"}
-                        </td>
-                        <td className="px-3 py-4">
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${
-                              statusStyles[status] || "bg-slate-100 text-slate-600"
-                            }`}
-                          >
-                            {record.status}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+        > 
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <ClipboardCheck size={23} className="text-blue-600" />
+              <h2 className="text-lg font-bold">Attendance History</h2>
             </div>
-          )}
+
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="relative w-full flex-1">
+                <select
+                  value={selectedAttendanceSubject}
+                  onChange={(e) => setSelectedAttendanceSubject(e.target.value)}
+                  className="w-full appearance-none flex-1 rounded-xl border border-blue-100 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                >
+                  <option value="">Select a subject</option>
+                  {subjects.map((subject) => (
+                    <option key={subject._id} value={subject._id}>
+                      {subject.code} - {subject.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={16}
+                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
+                />
+              </div>
+
+              <button
+                type="button"
+                disabled={!selectedAttendanceSubject}
+                onClick={() =>
+                  navigate(`/student/attendance/${selectedAttendanceSubject}`)
+                }
+                className="shrink-0 rounded-xl bg-blue-600 px-6 py-3 text-md font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                View Attendance
+              </button>
+            </div>
+          </div>
         </section>
 
         {/* Attendance Summary */}

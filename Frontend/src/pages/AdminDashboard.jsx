@@ -121,10 +121,14 @@ function AdminDashboard() {
     }
   }, []);
 
+  
   const updateApproval = async (userId, action) => {
     setProcessingId(userId);
     setMessage("");
     setError("");
+
+    // Get the user before removing them from pending registrations
+    const selectedUser = users.find((user) => user._id === userId);
 
     try {
       const response = await api.patch(
@@ -132,14 +136,62 @@ function AdminDashboard() {
         {},
         authConfig()
       );
+
+      if (action === "approve" && selectedUser) {
+        // Update the user's status in User Management
+        setAllUsers((current) =>
+          current.map((user) =>
+            user._id === userId
+              ? { ...user, approvalStatus: "approved" }
+              : user
+          )
+        );
+
+        // Update Registered Students count
+        if (selectedUser.role === "student") {
+          setRegisteredStudents((current) => current + 1);
+        }
+
+        // Update Registered Lecturers list and summary count
+        if (selectedUser.role === "lecturer") {
+          setLecturers((current) => {
+            const alreadyExists = current.some(
+              (lecturer) => lecturer._id === userId
+            );
+
+            return alreadyExists
+              ? current
+              : [...current, { ...selectedUser, approvalStatus: "approved" }];
+          });
+        }
+      }
+
+      if (action === "reject" && selectedUser) {
+        // Update rejected status in User Management
+        setAllUsers((current) =>
+          current.map((user) =>
+            user._id === userId
+              ? { ...user, approvalStatus: "rejected" }
+              : user
+          )
+        );
+      }
+
+      // Remove from pending registration requests
+      setUsers((current) =>
+        current.filter((user) => user._id !== userId)
+      );
+
       setMessage(response.data.message);
-      setUsers((current) => current.filter((user) => user._id !== userId));
     } catch (err) {
-      setError(err.response?.data?.message || "Could not update registration.");
+      setError(
+        err.response?.data?.message || "Could not update registration."
+      );
     } finally {
       setProcessingId("");
     }
   };
+
 
   const openCreate = () => {
     setSelectedSubject(null);
@@ -226,6 +278,13 @@ function AdminDashboard() {
       .includes(search.toLowerCase())
   );
 
+  const recentSubjects = [...filteredSubjects]
+  .sort(
+    (a, b) =>
+      new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+  )
+  .slice(0, 3);
+
  
   const filteredUsers = allUsers.filter((user) =>
     `${user.name || ""} ${user.email || ""} ${user.role || ""} ${
@@ -307,7 +366,7 @@ function AdminDashboard() {
       <div className="flex">
         {/* Sidebar */}
         <aside
-          className={`${mobileMenu ? "translate-x-0" : "-translate-x-full"} fixed bottom-0 left-0 top-16.5 z-20 flex w-60 flex-col border-r border-blue-100 bg-white px-3 py-5 transition-transform lg:sticky lg:top-16.5 lg:h-[calc(100vh-66px)] lg:translate-x-0`}
+          className={`${mobileMenu ? "translate-x-0" : "-translate-x-full"} fixed bottom-0 left-0 top-16.5 z-20 flex w-80 flex-col border-r border-blue-100 bg-white px-3 py-5 transition-transform lg:sticky lg:top-16.5 lg:h-[calc(100vh-66px)] lg:translate-x-0`}
         >
           <nav className="space-y-1">
             {navItems.map(({ label, icon: Icon, target, count }, index) => (
@@ -539,7 +598,7 @@ function AdminDashboard() {
                 <div className="flex w-full items-center gap-3 sm:w-auto">
                   <button
                     onClick={() => navigate("/admin/users")}
-                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-blue-700 transition"
+                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-blue-600 hover:text-blue-800"
                   >
                     View All
                     <span aria-hidden="true">→</span>
@@ -803,7 +862,7 @@ function AdminDashboard() {
                   </div>
                   <button
                     onClick={() => navigate("/admin/subjects")}
-                    className="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-blue-700"
+                    className="inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-blue-600 hover:text-blue-800"
                   >
                     View All
                     <span aria-hidden="true">→</span>
@@ -840,7 +899,7 @@ function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {subjects.slice(0, 3).map((subject, index) => (
+                      {recentSubjects.map((subject, index) => (
                         <tr key={subject._id} className="border-t border-slate-100 hover:bg-blue-50/40">
                           <td className="px-4 py-3 text-slate-500">{index + 1}</td>
                           <td className="px-4 py-3 font-semibold text-blue-700">{subject.code}</td>

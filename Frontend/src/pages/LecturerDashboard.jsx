@@ -328,23 +328,18 @@ function LecturerDashboard() {
         </div>
 
         <div className="flex items-center gap-3 sm:gap-5">
-          <button
-            className="rounded-full p-2 text-slate-500 hover:bg-blue-50"
-            aria-label="Notifications"
-          >
-            <Bell size={21} />
-          </button>
+          
           <div className="hidden h-9 border-l border-slate-200 sm:block" />
           <div className="text-right">
-            <p className="text-sm font-bold">{lecturerName}</p>
-            <p className="text-xs text-slate-500">Lecturer</p>
+            <p className="text-md font-bold">{lecturerName}</p>
+            <p className="text-sm text-slate-500">Lecturer</p>
           </div>
           <button
             onClick={logout}
             className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600"
             title="Logout"
           >
-            <LogOut size={19} />
+            <LogOut size={20} />
           </button>
         </div>
       </header>
@@ -359,7 +354,7 @@ function LecturerDashboard() {
         )}
 
         <aside
-          className={`fixed bottom-0 left-0 top-18 z-20 flex w-60 flex-col border-r border-blue-100 bg-white px-3 py-5 transition-transform lg:sticky lg:top-18 lg:h-[calc(100vh-72px)] lg:translate-x-0 ${
+          className={`fixed bottom-0 left-0 top-18 z-20 flex w-80 flex-col border-r border-blue-100 bg-white px-3 py-5 transition-transform lg:sticky lg:top-18 lg:h-[calc(100vh-72px)] lg:translate-x-0 ${
             mobileMenu ? "translate-x-0" : "-translate-x-full"
           }`}
         >
