@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, Users } from "lucide-react";
+import { ArrowLeft, Search, Users, ChevronDown } from "lucide-react";
 import api from "../services/api";
 
 function AllUsers() {
@@ -8,6 +8,7 @@ function AllUsers() {
 
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
+  const [userSort, setUserSort] = useState("newest");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -47,8 +48,36 @@ function AllUsers() {
       .includes(search.toLowerCase())
   );
 
-  const getUserId = (user) =>
-    user.studentId || user.lecturerId || user._id || "—";
+  const sortedUsers = [...filteredUsers].sort((a, b) => {
+    switch (userSort) {
+      case "oldest":
+        return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+
+      case "name-asc":
+        return (a.name || "").localeCompare(b.name || "");
+
+      case "name-desc":
+        return (b.name || "").localeCompare(a.name || "");
+
+      case "role-asc":
+        return (a.role || "").localeCompare(b.role || "");
+
+      case "role-desc":
+        return (b.role || "").localeCompare(a.role || "");
+
+      case "newest":
+      default:
+        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    }
+  });
+
+  const getUserId = (user) => {
+    if (user.role?.toLowerCase() === "admin") {
+      return "—";
+    }
+
+    return user.studentId || user.lecturerId || "—";
+  };
 
   const getStatus = (user) => {
     if (user.approvalStatus) return user.approvalStatus;
@@ -140,18 +169,42 @@ function AllUsers() {
               </p>
             </div>
 
-            <div className="relative w-full sm:max-w-sm">
-              <Search
-                size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search name, email, ID or role..."
-                className="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-              />
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+              {/* Search */}
+              <div className="relative w-full sm:w-72">
+                <Search
+                  size={18}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search name, email, ID or role..."
+                  className="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+
+              {/* Sorting */}
+              <div className="relative w-full sm:w-44">
+                <select
+                  value={userSort}
+                  onChange={(e) => setUserSort(e.target.value)}
+                  className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 pr-9 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                >
+                  <option value="newest">Newest First</option>
+                  <option value="oldest">Oldest First</option>
+                  <option value="name-asc">Name (A–Z)</option>
+                  <option value="name-desc">Name (Z–A)</option>
+                  <option value="role-asc">Role (A–Z)</option>
+                  <option value="role-desc">Role (Z–A)</option>
+                </select>
+
+                <ChevronDown
+                  size={16}
+                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+              </div>
             </div>
           </div>
 
@@ -193,7 +246,7 @@ function AllUsers() {
                 </thead>
 
                 <tbody className="divide-y divide-slate-100">
-                  {filteredUsers.map((user, index) => (
+                  {sortedUsers.map((user, index) => (
                     <tr
                       key={user._id || user.email || index}
                       className="transition hover:bg-slate-50"
@@ -248,7 +301,7 @@ function AllUsers() {
 
           {!loading && !error && filteredUsers.length > 0 && (
             <div className="border-t border-slate-100 px-5 py-4 text-sm text-slate-500">
-              Showing {filteredUsers.length} of {users.length} registered users
+              Showing {sortedUsers.length} of {users.length} registered users
             </div>
           )}
         </section>

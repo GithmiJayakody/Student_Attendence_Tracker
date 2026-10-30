@@ -9,6 +9,7 @@ import {
   Trash2,
   LoaderCircle,
   X,
+  ChevronDown,
 } from "lucide-react";
 import api from "../services/api";
 
@@ -23,19 +24,20 @@ function AllSubjects() {
 
   const [subjects, setSubjects] = useState([]);
   const [search, setSearch] = useState("");
+  const [subjectSort, setSubjectSort] = useState("newest");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [lecturers, setLecturers] = useState([]);
-    const [selectedSubject, setSelectedSubject] = useState(null);
-    const [modal, setModal] = useState("");
-    const [subjectLoading, setSubjectLoading] = useState(false);
-    const [form, setForm] = useState({
+  const [selectedSubject, setSelectedSubject] = useState(null);
+  const [modal, setModal] = useState("");
+  const [subjectLoading, setSubjectLoading] = useState(false);
+  const [form, setForm] = useState({
     name: "",
     code: "",
     lecturerId: "",
-    });
-
+  });
+  
   useEffect(() => {
     const fetchSubjects = async () => {
       try {
@@ -61,33 +63,56 @@ function AllSubjects() {
     fetchSubjects();
   }, []);
 
-  const filteredSubjects = subjects.filter((subject) =>
-    `${subject.name || ""} ${subject.code || ""} ${
+const filteredSubjects = subjects.filter((subject) =>
+  `${subject.name || ""} ${subject.code || ""} ${
       subject.lecturer?.name || ""
-    }`
-      .toLowerCase()
-      .includes(search.toLowerCase())
-  );
+  }`
+    .toLowerCase()
+    .includes(search.toLowerCase())
+);
+
+const sortedSubjects = [...filteredSubjects].sort((a, b) => {
+  switch (subjectSort) {
+    case "oldest":
+      return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+
+    case "name-asc":
+      return (a.name || "").localeCompare(b.name || "");
+
+    case "name-desc":
+      return (b.name || "").localeCompare(a.name || "");
+
+    case "code-asc":
+      return (a.code || "").localeCompare(b.code || "");
+
+    case "code-desc":
+      return (b.code || "").localeCompare(a.code || "");
+
+    case "newest":
+    default:
+      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+  }
+});
 
   
-    const openView = (subject) => {
+  const openView = (subject) => {
     setSelectedSubject(subject);
     setModal("view");
-    };
+  };
 
-    const openEdit = (subject) => {
+  const openEdit = (subject) => {
     setSelectedSubject(subject);
     setForm({
-        name: subject.name || "",
-        code: subject.code || "",
-        lecturerId: subject.lecturer?._id || subject.lecturer || "",
-    });
+      name: subject.name || "",
+      code: subject.code || "",
+      lecturerId: subject.lecturer?._id || subject.lecturer || "",
+  });
     setError("");
     setMessage("");
     setModal("edit");
-    };
+  };
 
-    const saveSubject = async (event) => {
+  const saveSubject = async (event) => {
     event.preventDefault();
     if (!selectedSubject) return;
 
@@ -120,12 +145,12 @@ function AllSubjects() {
     } finally {
         setSubjectLoading(false);
     }
-    };
+  };
   
-    const deleteSubject = async (subject) => {
+  const deleteSubject = async (subject) => {
     setSelectedSubject(subject);
     setModal("delete");
-    };
+  };
 
   return (
     <div className="min-h-screen bg-[#eef6ff] px-4 py-6 text-[#10234e] sm:px-6 sm:py-8">
@@ -167,17 +192,41 @@ function AllSubjects() {
               </p>
             </div>
 
-            <div className="relative w-full sm:max-w-sm">
-              <Search
-                size={17}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by subject, code, or lecturer..."
-                className="w-full rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              />
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+              {/* Search */}
+              <div className="relative w-full sm:w-72">
+                <Search
+                  size={17}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by subject, code, or lecturer..."
+                  className="w-full rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+
+              {/* Sorting */}
+              <div className="relative w-full sm:w-44">
+                <select
+                  value={subjectSort}
+                  onChange={(e) => setSubjectSort(e.target.value)}
+                  className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 pr-9 text-sm text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                >
+                  <option value="newest">Newest First</option>
+                  <option value="oldest">Oldest First</option>
+                  <option value="name-asc">Name (A–Z)</option>
+                  <option value="name-desc">Name (Z–A)</option>
+                  <option value="code-asc">Code (A–Z)</option>
+                  <option value="code-desc">Code (Z–A)</option>
+                </select>
+
+                <ChevronDown
+                  size={16}
+                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+              </div>
             </div>
           </div>
 
@@ -237,7 +286,7 @@ function AllSubjects() {
                 </thead>
 
                 <tbody>
-                  {filteredSubjects.map((subject, index) => (
+                  {sortedSubjects.map((subject, index) => (
                     <tr
                       key={subject._id}
                       className="border-t border-slate-100 transition hover:bg-blue-50/40"
@@ -304,7 +353,7 @@ function AllSubjects() {
 
           {!loading && !error && filteredSubjects.length > 0 && (
             <div className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500">
-              Showing {filteredSubjects.length} of {subjects.length} subjects
+              Showing {sortedSubjects.length} of {subjects.length} subjects
             </div>
           )}
         </section>
