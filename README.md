@@ -1,15 +1,9 @@
 # StudentTrack – Student Attendance Management System
 
 <p align="center">
-  <img 
-    src="Frontend/src/assets/Logo-GraduationCap.png" 
-    alt="StudentTrack Logo" 
-    width="55"
-    style="vertical-align: middle;"
-  />
-  <span style="font-size: 32px; font-weight: bold; vertical-align: middle; margin-left: 10px;">
-    Student<span style="color: #2563eb;">Track</span>
-  </span>
+  <img src="Frontend/src/assets//StudentTrack-Logo.png"
+       alt="StudentTrack Logo"
+       width="300" />
 </p>
 
 <p align="center">
@@ -243,7 +237,15 @@ The database stores application information such as:
 - Class session details.
 - Student attendance records.
 
-## 10. Development
+
+## 10. Entity Relationship Diagram
+
+The following diagram illustrates the database structure and relationships of the StudentTrack system.
+
+![StudentTrack ERD](docs/StudentTrack-ERD.png)
+
+
+## 11. Development
 
 **Name:** Githmi Jayakody
 
@@ -258,19 +260,13 @@ The database stores application information such as:
 ---
 
 <p align="center">
-  <img
-    src="Frontend/src/assets/Logo-GraduationCap.png"
-    alt="StudentTrack Logo"
-    width="40"
-    style="vertical-align: middle;"
-  />
-  <strong style="font-size: 24px; vertical-align: middle; margin-left: 8px;">
-    Student<span style="color: #2563eb;">Track</span>
-  </strong>
+  <img src="Frontend/src/assets//StudentTrack-Logo.png"
+       alt="StudentTrack Logo"
+       width="150" />
 </p>
 
 <p align="center">
-  <em>Smarter Attendance Management for a Brighter Future.</em>
+  <em>Smarter Attendance for a Brighter Future.</em>
 </p>
 
 
